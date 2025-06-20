@@ -2,7 +2,7 @@
    VARIABLES GLOBALES
 ======================================== */
 
-let map, marker, lat = 46.7796, lng = -71.2770; 
+let map, marker, lat = 46.7795, lng = -71.2770; 
 let weatherData = null;
 let tempSelectedPosition = null;
 
