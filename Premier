@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consultation Météo Interactive Mondiale 🌍</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .map-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .address-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .address-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: end;
+        }
+
+        .address-input-group input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .address-input-group input:focus {
+            border-color: #4CAF50;
+            outline: none;
+        }
+
+        .address-input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .address-input-container {
+            flex: 1;
+        }
+
+        #searchAddress {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        #searchAddress:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        #map {
+            height: 400px;
+            width: 100%;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        #coords {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        #getWeather {
+            background: #4CAF50;
+            color: white;
+        }
+
+        #getWeather:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .weather-button {
+            background: #2196F3;
+            color: white;
+        }
+
+        .weather-button:hover {
+            background: #1976D2;
+            transform: translateY(-2px);
+        }
+
+        .weather-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .solar-button {
+            background: #FF9800;
+            color: white;
+        }
+
+        .solar-button:hover {
+            background: #F57C00;
+            transform: translateY(-2px);
+        }
+
+        .solar-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .weather-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .solar-input-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            border-color: #FF9800;
+            outline: none;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .weather-current {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .solar-current {
+            background: linear-gradient(135deg, #fdcb6e, #e17055);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .weather-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .weather-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 4px solid #74b9ff;
+        }
+
+        .solar-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 4px solid #FF9800;
+        }
+
+        .forecast-day {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #00b894;
+        }
+
+        .error {
+            background: #ff7675;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .success {
+            background: #00b894;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .info {
+            background: #74b9ff;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
+            }
+
+            .input-row {
+                grid-template-columns: 1fr;
+            }
+
+            .address-input-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .address-input-group input {
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌤️ Consultation Météo Interactive Mondiale 🌍</h1>
+        
+        <div class="address-section">
+            <h2>📍 Sélection de l'emplacement</h2>
+            <div class="address-input-group">
+                <div class="address-input-container">
+                    <label for="addressInput">Entrez une adresse :</label>
+                    <input type="text" id="addressInput" placeholder="Ex: 1600 Pennsylvania Avenue, Washington, DC ou Tour Eiffel, Paris" />
+                </div>
+                <button id="searchAddress">🔍 Rechercher</button>
+            </div>
+            <div class="info" style="display: none;" id="addressInfo">
+                ℹ️ Vous pouvez aussi cliquer directement sur la carte pour sélectionner une position
+            </div>
+        </div>
+
+        <div class="map-section">
+            <div id="map"></div>
+            <div id="coords">Cliquez sur la carte pour sélectionner une position</div>
+            
+            <div class="button-group">
+                <button id="getWeather">🌤️ Obtenir la météo</button>
+                <button id="showGeneral" class="weather-button" disabled>📊 Météo générale</button>
+                <button id="showWind" class="weather-button" disabled>💨 Informations vent</button>
+                <button id="showSolar" class="weather-button" disabled>☀️ Rayonnement solaire</button>
+                <button id="showTemp" class="weather-button" disabled>🌡️ Températures</button>
+                <button id="showAll" class="weather-button" disabled>📋 Tout afficher</button>
+                <button id="showSolarCalculator" class="solar-button" disabled>🏠 Rayonnement fenêtres</button>
+            </div>
+        </div>
+
+        <div id="loading">
+            <p>🔄 Récupération des données...</p>
+        </div>
+
+        <div id="weatherResults" class="weather-section"></div>
+
+        <div id="solarCalculator" class="solar-input-section">
+            <h2>🏠 Calculateur de Rayonnement à travers les Fenêtres</h2>
+            
+            <div class="input-row">
+                <div class="input-group">
+                    <label for="wallOrientation">Orientation du mur/fenêtre :</label>
+                    <select id="wallOrientation">
+                        <option value="N">Nord (N) - 0°</option>
+                        <option value="NE">Nord-Est (NE) - 45°</option>
+                        <option value="E">Est (E) - 90°</option>
+                        <option value="SE">Sud-Est (SE) - 135°</option>
+                        <option value="S" selected>Sud (S) - 180°</option>
+                        <option value="SW">Sud-Ouest (SW) - 225°</option>
+                        <option value="W">Ouest (W) - 270°</option>
+                        <option value="NW">Nord-Ouest (NW) - 315°</option>
+                        <option value="custom">Personnalisé</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label for="customAzimuth">Azimuth personnalisé (0-360°) :</label>
+                    <input type="number" id="customAzimuth" min="0" max="360" step="1" disabled>
+                </div>
+            </div>
+
+            <div class="input-row">
+                <div class="input-group">
+                    <label for="wallTilt">Inclinaison du mur (90° = vertical) :</label>
+                    <input type="number" id="wallTilt" value="90" min="0" max="90" step="1">
+                </div>
+                
+                <div class="input-group">
+                    <label for="albedo">Albédo du sol (réflectivité) :</label>
+                    <select id="albedo">
+                        <option value="0.1">Asphalte/Béton - 0.1</option>
+                        <option value="0.2" selected>Sol normal - 0.2</option>
+                        <option value="0.3">Herbe sèche - 0.3</option>
+                        <option value="0.4">Sable - 0.4</option>
+                        <option value="0.8">Neige fraîche - 0.8</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="calculateSolar" class="solar-button">☀️ Calculer le rayonnement</button>
+            </div>
+
+            <div id="solarResults"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // Variables globales
+        let map, marker, lat, lng, weatherData = null;
+
+        // Codes météo WMO
+        const weatherCodes = {
+            0: "Ciel dégagé", 1: "Principalement dégagé", 2: "Partiellement nuageux",
+            3: "Couvert", 45: "Brouillard", 48: "Brouillard givrant",
+            51: "Bruine légère", 53: "Bruine modérée", 55: "Bruine dense",
+            61: "Pluie légère", 63: "Pluie modérée", 65: "Pluie forte",
+            71: "Neige légère", 73: "Neige modérée", 75: "Neige forte",
+            80: "Averses légères", 81: "Averses modérées", 82: "Averses violentes",
+            95: "Orage", 96: "Orage avec grêle légère", 99: "Orage avec grêle forte"
+        };
+
+        // Fonctions utilitaires pour les calculs solaires
+        function toRadians(degrees) {
+            return degrees * (Math.PI / 180);
+        }
+
+        function toDegrees(radians) {
+            return radians * (180 / Math.PI);
+        }
+
+        function cosd(degrees) {
+            return Math.cos(toRadians(degrees));
+        }
+
+        function sind(degrees) {
+            return Math.sin(toRadians(degrees));
+        }
+
+        function orientationToAzimuth(orientationStr) {
+            const mapping = {'N': 0, 'E': 90, 'S': 180, 'W': 270,
+                           'NE': 45, 'SE': 135, 'SW': 225, 'NW': 315};
+            
+            if (orientationStr in mapping) {
+                return mapping[orientationStr];
+            } else {
+                try {
+                    return parseFloat(orientationStr);
+                } catch {
+                    throw new Error("Orientation non reconnue");
+                }
+            }
+        }
+
+        function calculateSolarPosition(latitude, longitude, date) {
+            // Calcul simplifié de la position solaire
+            const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
+            const declination = 23.45 * sind(360 * (284 + dayOfYear) / 365);
+            
+            const timeZoneOffset = date.getTimezoneOffset() / 60;
+            const solarTime = date.getHours() + date.getMinutes() / 60 - timeZoneOffset;
+            const hourAngle = 15 * (solarTime - 12);
+            
+            const elevation = Math.asin(
+                sind(declination) * sind(latitude) + 
+                cosd(declination) * cosd(latitude) * cosd(hourAngle)
+            );
+            
+            const azimuth = Math.atan2(
+                sind(hourAngle),
+                cosd(hourAngle) * sind(latitude) - Math.tan(declination) * cosd(latitude)
+            );
+            
+            return {
+                elevation: toDegrees(elevation),
+                azimuth: toDegrees(azimuth) + 180, // Ajustement pour convention
+                zenith: 90 - toDegrees(elevation)
+            };
+        }
+
+        function calculateAngleOfIncidence(surfaceTilt, surfaceAzimuth, solarZenith, solarAzimuth) {
+            const aoi = Math.acos(
+                cosd(solarZenith) * cosd(surfaceTilt) + 
+                sind(solarZenith) * sind(surfaceTilt) * cosd(solarAzimuth - surfaceAzimuth)
+            );
+            return toDegrees(aoi);
+        }
+
+        // Fonction de géocodage avec Nominatim
+        async function geocodeAddress(address) {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'block';
+            
+            try {
+                // Utilisation de l'API Nominatim d'OpenStreetMap pour le géocodage
+                const encodedAddress = encodeURIComponent(address);
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=5&addressdetails=1`;
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Erreur lors de la recherche d\'adresse');
+                
+                const results = await response.json();
+                loading.style.display = 'none';
+                
+                if (results.length === 0) {
+                    throw new Error('Aucune adresse trouvée. Veuillez vérifier votre saisie.');
+                }
+                
+                // Prendre le premier résultat
+                const result = results[0];
+                const newLat = parseFloat(result.lat);
+                const newLng = parseFloat(result.lon);
+                
+                // Mettre à jour la position
+                lat = newLat;
+                lng = newLng;
+                
+                // Mettre à jour la carte et le marqueur
+                marker.setLatLng([lat, lng]);
+                map.setView([lat, lng], 13);
+                
+                // Mettre à jour l'affichage des coordonnées
+                updateCoords();
+                
+                // Réinitialiser les boutons météo
+                resetWeatherButtons();
+                
+                // Afficher un message de succès avec l'adresse trouvée
+                const addressInfo = document.getElementById('addressInfo');
+                addressInfo.innerHTML = `✅ Adresse trouvée : ${result.display_name}`;
+                addressInfo.className = 'success';
+                addressInfo.style.display = 'block';
+                
+                // Masquer le message après 5 secondes
+                setTimeout(() => {
+                    addressInfo.style.display = 'none';
+                }, 5000);
+                
+            } catch (error) {
+                loading.style.display = 'none';
+                const addressInfo = document.getElementById('addressInfo');
+                addressInfo.innerHTML = `❌ ${error.message}`;
+                addressInfo.className = 'error';
+                addressInfo.style.display = 'block';
+                
+                // Masquer le message d'erreur après 5 secondes
+                setTimeout(() => {
+                    addressInfo.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Initialisation de la carte
+        function initMap() {
+            map = L.map('map').setView([46.8139, -71.2082], 8);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            marker = L.marker([46.8139, -71.2082], {draggable: true}).addTo(map);
+            lat = 46.8139;
+            lng = -71.2082;
+
+            // Événement clic sur la carte
+            map.on('click', function(e) {
+                lat = e.latlng.lat;
+                lng = e.latlng.lng;
+                marker.setLatLng([lat, lng]);
+                updateCoords();
+                resetWeatherButtons();
+            });
+
+            // Événement drag du marqueur
+            marker.on('dragend', function(e) {
+                lat = e.target.getLatLng().lat;
+                lng = e.target.getLatLng().lng;
+                updateCoords();
+                resetWeatherButtons();
+            });
+        }
+
+        function updateCoords() {
+            document.getElementById('coords').innerHTML = 
+                `Position sélectionnée : ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        }
+
+        function resetWeatherButtons() {
+            const buttons = document.querySelectorAll('.weather-button, .solar-button');
+            buttons.forEach(btn => btn.disabled = true);
+            weatherData = null;
+            document.getElementById('weatherResults').style.display = 'none';
+            document.getElementById('solarCalculator').style.display = 'none';
+        }
+
+        function enableWeatherButtons() {
+            const buttons = document.querySelectorAll('.weather-button, .solar-button');
+            buttons.forEach(btn => btn.disabled = false);
+        }
+
+        // Fonction pour récupérer les données météo
+        async function getWeatherData() {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('weatherResults');
+            
+            loading.style.display = 'block';
+            results.style.display = 'none';
+
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,shortwave_radiation,direct_radiation,diffuse_radiation&hourly=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m,shortwave_radiation,direct_radiation,diffuse_radiation&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_sum,wind_speed_10m_max,wind_gusts_10m_max,shortwave_radiation_sum&timezone=auto&forecast_days=3`;
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Erreur réseau');
+                
+                weatherData = await response.json();
+                
+                loading.style.display = 'none';
+                results.innerHTML = '<div class="success">✅ Données météorologiques récupérées avec succès!</div>';
+                results.style.display = 'block';
+                
+                enableWeatherButtons();
+                
+            } catch (error) {
+                loading.style.display = 'none';
+                results.innerHTML = `<div class="error">❌ Erreur: ${error.message}</div>`;
+                results.style.display = 'block';
+            }
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+            return `${days[date.getDay()]} ${date.getDate()}/${date.getMonth() + 1}`;
+        }
+
+        function showSolarCalculator() {
+            const calculator = document.getElementById('solarCalculator');
+            calculator.style.display = 'block';
+            calculator.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function calculateSolarRadiation() {
+            if (!weatherData) {
+                alert('Veuillez d\'abord récupérer les données météorologiques');
+                return;
+            }
+
+            const orientationSelect = document.getElementById('wallOrientation');
+            const customAzimuth = document.getElementById('customAzimuth');
+            const wallTilt = parseFloat(document.getElementById('wallTilt').value);
+            const albedo = parseFloat(document.getElementById('albedo').value);
+
+            let surfaceAzimuth;
+            if (orientationSelect.value === 'custom') {
+                surfaceAzimuth = parseFloat(customAzimuth.value);
+                if (isNaN(surfaceAzimuth)) {
+                    alert('Veuillez entrer un azimuth personnalisé valide');
+                    return;
+                }
+            } else {
+                surfaceAzimuth = orientationToAzimuth(orientationSelect.value);
+            }
+
+            // Utilisation des données météo actuelles
+            const current = weatherData.current;
+            const GHI = current.shortwave_radiation || 800; // W/m²
+            const DNI = current.direct_radiation || 900; // W/m²
+            const DHI = current.diffuse_radiation || 100; // W/m²
+
+            // Calcul de la position solaire actuelle
+            const now = new Date();
+            const solarPos = calculateSolarPosition(lat, lng, now);
+
+            // Calcul de l'angle d'incidence
+            const aoi = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPos.zenith, solarPos.azimuth);
+
+            // Calcul du rayonnement sur le mur
+            let directOnWall = 0;
+            if (aoi < 90) {
+                directOnWall = DNI * Math.max(0, cosd(aoi));
+            }
+
+            const diffuseOnWall = DHI * (1 + cosd(wallTilt)) / 2;
+            const reflectedOnWall = GHI * albedo * (1 - cosd(wallTilt)) / 2;
+            const totalOnWall = directOnWall + diffuseOnWall + reflectedOnWall;
+
+            // Affichage des résultats
+            const resultsDiv = document.getElementById('solarResults');
+            const orientationText = orientationSelect.value === 'custom' ? 
+                `${surfaceAzimuth}° (personnalisé)` : 
+                `${orientationSelect.options[orientationSelect.selectedIndex].text}`;
+
+            resultsDiv.innerHTML = `
+                <div class="solar-current">
+                    <h3>☀️ CALCUL DU RAYONNEMENT SOLAIRE</h3>
+                    <div class="weather-grid">
+                        <div><strong>📍 Position:</strong> ${lat.toFixed(4)}°, ${lng.toFixed(4)}°</div>
+                        <div><strong>🧭 Orientation mur:</strong> ${orientationText}</div>
+                        <div><strong>📐 Inclinaison mur:</strong> ${wallTilt}°</div>
+                        <div><strong>🌍 Albédo sol:</strong> ${albedo}</div>
+                    </div>
+                </div>
+
+                <h3>🌞 Position Solaire Actuelle</h3>
+                <div class="weather-grid">
+                    <div class="solar-card">
+                        <strong>🧭 Azimuth solaire:</strong> ${solarPos.azimuth.toFixed(1)}°
+                    </div>
+                    <div class="solar-card">
+                        <strong>📐 Élévation solaire:</strong> ${solarPos.elevation.toFixed(1)}°
+                    </div>
+                    <div class="solar-card">
+                        <strong>🔺 Angle zénithal:</strong> ${solarPos.zenith.toFixed(1)}°
+                    </div>
+                    <div class="solar-card">
+                        <strong>📐 Angle d'incidence:</strong> ${aoi.toFixed(1)}°
+                    </div>
+                </div>
+
+                <h3>☀️ Données de Rayonnement</h3>
+                <div class="weather-grid">
+                    <div class="solar-card">
+                        <strong>🌍 GHI (Global Horizontal):</strong><br>
+                        ${GHI.toFixed(1)} W/m²
+                    </div>
+                    <div class="solar-card">
+                        <strong>☀️ DNI (Direct Normal):</strong><br>
+                        ${DNI.toFixed(1)} W/m²
+                    </div>
+                    <div class="solar-card">
+                        <strong>☁️ DHI (Diffuse Horizontal):</strong><br>
+                        ${DHI.toFixed(1)} W/m²
+                    </div>
+                </div>
+
+                <h3>🏠 Rayonnement sur le Mur/Fenêtre</h3>
+                <div class="weather-grid">
+                    <div class="solar-card">
+                        <strong>☀️ Rayonnement direct:</strong><br>
+                        ${directOnWall.toFixed(1)} W/m²
+                    </div>
+                    <div class="solar-card">
+                        <strong>☁️ Rayonnement diffus:</strong><br>
+                        ${diffuseOnWall.toFixed(1)} W/m²
+                    </div>
+                    <div class="solar-card">
+                        <strong>🌍 Rayonnement réfléchi:</strong><br>
+                        ${reflectedOnWall.toFixed(1)} W/m²
+                    </div>
+                    <div class="solar-card" style="border-left-color: #e17055; background: #ffeaa7;">
+                        <strong>🏠 TOTAL sur mur/fenêtre:</strong><br>
+                        <span style="font-size: 1.2em; color: #d63031;">${totalOnWall.toFixed(1)} W/m²</span>
+                    </div>
+                </div>
+
+                <div class="success" style="margin-top: 20px;">
+                    💡 <strong>Interprétation:</strong> ${totalOnWall > 500 ? 
+                        'Excellent rayonnement - Idéal pour le chauffage solaire passif' : 
+                        totalOnWall > 200 ? 
+                        'Rayonnement modéré - Bon apport solaire' : 
+                        'Rayonnement faible - Peu d\'apport solaire'
+                    }
+                </div>
+            `;
+        }
+
+        // Fonctions météo existantes (conservées)
+        function showGeneralWeather() {
+            if (!weatherData) return;
+            
+            const current = weatherData.current;
+            const daily = weatherData.daily;
+            
+            let html = `
+                <h2>🌤️ Météo Générale</h2>
+                <div class="weather-current">
+                    <h3>CONDITIONS ACTUELLES</h3>
+                    <div class="weather-grid">
+                        <div>🌡️ Température: <strong>${current.temperature_2m}°C</strong></div>
+                        <div>🌡️ Ressenti: <strong>${current.apparent_temperature}°C</strong></div>
+                        <div>💧 Humidité: <strong>${current.relative_humidity_2m}%</strong></div>
+                        <div>☁️ Conditions: <strong>${weatherCodes[current.weather_code] || 'Inconnu'}</strong></div>
+                    </div>
+                </div>
+                
+                <h3>PRÉVISIONS 3 JOURS</h3>
+            `;
+            
+            for (let i = 0; i < daily.time.length; i++) {
+                html += `
+                    <div class="forecast-day">
+                        <strong>${formatDate(daily.time[i])}</strong><br>
+                        🌡️ ${daily.temperature_2m_min[i]}°C / ${daily.temperature_2m_max[i]}°C<br>
+                        🌧️ ${daily.precipitation_sum[i]} mm - ${weatherCodes[daily.weather_code[i]] || 'Inconnu'}
+                    </div>
+                `;
+            }
+            
+            document.getElementById('weatherResults').innerHTML = html;
+        }
+
+        function showWindInfo() {
+            if (!weatherData) return;
+            
+            const current = weatherData.current;
+            const daily = weatherData.daily;
+            
+            let html = `
+                <h2>💨 Informations Vent</h2>
+                <div class="weather-current">
+                    <h3>CONDITIONS ACTUELLES</h3>
+                    <div class="weather-grid">
+                        <div>💨 Vitesse: <strong>${current.wind_speed_10m} km/h</strong></div>
+                        <div>🧭 Direction: <strong>${current.wind_direction_10m}°</strong></div>
+                        ${current.wind_gusts_10m ? `<div>💨 Rafales: <strong>${current.wind_gusts_10m} km/h</strong></div>` : ''}
+                    </div>
+                </div>
+                
+                <h3>PRÉVISIONS VENT 3 JOURS</h3>
+            `;
+            
+            for (let i = 0; i < daily.time.length; i++) {
+                html += `
+                    <div class="forecast-day">
+                        <strong>${formatDate(daily.time[i])}</strong><br>
+                        💨 Vent max: ${daily.wind_speed_10m_max[i]} km/h<br>
+                        ${daily.wind_gusts_10m_max && daily.wind_gusts_10m_max[i] ? `💨 Rafales max: ${daily.wind_gusts_10m_max[i]} km/h` : ''}
+                    </div>
+                `;
+            }
+            
+            document.getElementById('weatherResults').innerHTML = html;
+        }
+
+        function showSolarRadiation() {
+            if (!weatherData) return;
+            
+            const current = weatherData.current;
+            const daily = weatherData.daily;
+            
+            let html = `
+                <h2>☀️ Rayonnement Solaire (W/m²)</h2>
+                <div class="weather-current">
+                    <h3>CONDITIONS ACTUELLES</h3>
+                    <div class="weather-grid">
+                        ${current.shortwave_radiation ? `<div>☀️ Total: <strong>${current.shortwave_radiation} W/m²</strong></div>` : ''}
+                        ${current.direct_radiation ? `<div>🌞 Direct: <strong>${current.direct_radiation} W/m²</strong></div>` : ''}
+                        ${current.diffuse_radiation ? `<div>☁️ Diffus: <strong>${current.diffuse_radiation} W/m²</strong></div>` : ''}
+                    </div>
+                </div>
+                
+                <h3>PRÉVISIONS RAYONNEMENT 3 JOURS</h3>
+            `;
+            
+            for (let i = 0; i < daily.time.length; i++) {
+                if (daily.shortwave_radiation_sum && daily.shortwave_radiation_sum[i]) {
+                    html += `
+                        <div class="forecast-day">
+                            <strong>${formatDate(daily.time[i])}</strong><br>
+                            ☀️ Rayonnement journalier: ${daily.shortwave_radiation_sum[i].toFixed(1)} Wh/m²
+                        </div>
+                    `;
+                }
+            }
+            
+            document.getElementById('weatherResults').innerHTML = html;
+        }
+
+        function showTemperatures() {
+            if (!weatherData) return;
+            
+            const current = weatherData.current;
+            const daily = weatherData.daily;
+            
+            let html = `
+                <h2>🌡️ Températures Détaillées</h2>
+                <div class="weather-current">
+                    <h3>CONDITIONS ACTUELLES</h3>
+                    <div class="weather-grid">
+                        <div>🌡️ Réelle: <strong>${current.temperature_2m}°C</strong></div>
+                        <div>🌡️ Ressentie: <strong>${current.apparent_temperature}°C</strong></div>
+                        <div>💧 Humidité: <strong>${current.relative_humidity_2m}%</strong></div>
+                    </div>
+                </div>
+                
+                <h3>PRÉVISIONS TEMPÉRATURES 3 JOURS</h3>
+            `;
+            
+            for (let i = 0; i < daily.time.length; i++) {
+                const amplitude = daily.temperature_2m_max[i] - daily.temperature_2m_min[i];
+                html += `
+                    <div class="forecast-day">
+                        <strong>${formatDate(daily.time[i])}</strong><br>
+                        🌡️ Min: ${daily.temperature_2m_min[i]}°C | Max: ${daily.temperature_2m_max[i]}°C | Amplitude: ${amplitude.toFixed(1)}°C
+                    </div>
+                `;
+            }
+            
+            document.getElementById('weatherResults').innerHTML = html;
+        }
+
+        function showAllInfo() {
+            if (!weatherData) return;
+            
+            let html = '';
+            
+            // Météo générale
+            const current = weatherData.current;
+            const daily = weatherData.daily;
+            
+            html += `
+                <h2>📋 Toutes les Informations Météorologiques</h2>
+                
+                <div class="weather-current">
+                    <h3>CONDITIONS ACTUELLES</h3>
+                    <div class="weather-grid">
+                        <div class="weather-card">
+                            <h4>🌡️ Températures</h4>
+                            <p>Réelle: <strong>${current.temperature_2m}°C</strong></p>
+                            <p>Ressentie: <strong>${current.apparent_temperature}°C</strong></p>
+                            <p>Humidité: <strong>${current.relative_humidity_2m}%</strong></p>
+                        </div>
+                        
+                        <div class="weather-card">
+                            <h4>💨 Vent</h4>
+                            <p>Vitesse: <strong>${current.wind_speed_10m} km/h</strong></p>
+                            <p>Direction: <strong>${current.wind_direction_10m}°</strong></p>
+                            ${current.wind_gusts_10m ? `<p>Rafales: <strong>${current.wind_gusts_10m} km/h</strong></p>` : ''}
+                        </div>
+                        
+                        <div class="weather-card">
+                            <h4>☀️ Rayonnement</h4>
+                            ${current.shortwave_radiation ? `<p>Total: <strong>${current.shortwave_radiation} W/m²</strong></p>` : ''}
+                            ${current.direct_radiation ? `<p>Direct: <strong>${current.direct_radiation} W/m²</strong></p>` : ''}
+                            ${current.diffuse_radiation ? `<p>Diffus: <strong>${current.diffuse_radiation} W/m²</strong></p>` : ''}
+                        </div>
+                        
+                        <div class="weather-card">
+                            <h4>☁️ Conditions</h4>
+                            <p><strong>${weatherCodes[current.weather_code] || 'Inconnu'}</strong></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <h3>PRÉVISIONS COMPLÈTES 3 JOURS</h3>
+            `;
+            
+            for (let i = 0; i < daily.time.length; i++) {
+                const amplitude = daily.temperature_2m_max[i] - daily.temperature_2m_min[i];
+                html += `
+                    <div class="forecast-day">
+                        <h4>${formatDate(daily.time[i])}</h4>
+                        <div class="weather-grid">
+                            <div>🌡️ <strong>${daily.temperature_2m_min[i]}°C / ${daily.temperature_2m_max[i]}°C</strong> (Amplitude: ${amplitude.toFixed(1)}°C)</div>
+                            <div>💨 Vent max: <strong>${daily.wind_speed_10m_max[i]} km/h</strong></div>
+                            <div>🌧️ Précipitations: <strong>${daily.precipitation_sum[i]} mm</strong></div>
+                            <div>☁️ <strong>${weatherCodes[daily.weather_code[i]] || 'Inconnu'}</strong></div>
+                            ${daily.shortwave_radiation_sum && daily.shortwave_radiation_sum[i] ? `<div>☀️ Rayonnement: <strong>${daily.shortwave_radiation_sum[i].toFixed(1)} Wh/m²</strong></div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('weatherResults').innerHTML = html;
+        }
+
+        // Événements
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            updateCoords();
+            
+            // Afficher le message d'info au chargement
+            document.getElementById('addressInfo').style.display = 'block';
+            
+            // Gestion de la recherche d'adresse
+            document.getElementById('searchAddress').addEventListener('click', function() {
+                const address = document.getElementById('addressInput').value.trim();
+                if (address) {
+                    geocodeAddress(address);
+                } else {
+                    alert('Veuillez entrer une adresse');
+                }
+            });
+            
+            // Permettre la recherche avec la touche Entrée
+            document.getElementById('addressInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const address = this.value.trim();
+                    if (address) {
+                        geocodeAddress(address);
+                    }
+                }
+            });
+            
+            // Gestion du champ azimuth personnalisé
+            document.getElementById('wallOrientation').addEventListener('change', function() {
+                const customField = document.getElementById('customAzimuth');
+                if (this.value === 'custom') {
+                    customField.disabled = false;
+                    customField.focus();
+                } else {
+                    customField.disabled = true;
+                    customField.value = '';
+                }
+            });
+            
+            // Événements des boutons
+            document.getElementById('getWeather').addEventListener('click', getWeatherData);
+            document.getElementById('showGeneral').addEventListener('click', showGeneralWeather);
+            document.getElementById('showWind').addEventListener('click', showWindInfo);
+            document.getElementById('showSolar').addEventListener('click', showSolarRadiation);
+            document.getElementById('showTemp').addEventListener('click', showTemperatures);
+            document.getElementById('showAll').addEventListener('click', showAllInfo);
+            document.getElementById('showSolarCalculator').addEventListener('click', showSolarCalculator);
+            document.getElementById('calculateSolar').addEventListener('click', calculateSolarRadiation);
+        });
+    </script>
+</body>
+</html>
+
