@@ -2,7 +2,7 @@
    VARIABLES GLOBALES
 ======================================== */
 
-let map, marker, lat = 48.8566, lng = 2.3522; // Paris par défaut
+let map, marker, lat = 46.7796, lng = -71.2770; 
 let weatherData = null;
 let tempSelectedPosition = null;
 
@@ -828,7 +828,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Récupérer automatiquement les données météo pour Paris au démarrage
     getWeatherData();
 });
 
