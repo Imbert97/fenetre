@@ -2,7 +2,7 @@
    VARIABLES GLOBALES
 ======================================== */
 
-let map, marker, lat = 48.8566, lng = 2.3522; // Paris par défaut
+let map, marker, lat = 46.813859, lng = -71.208055; // Paris par défaut
 let weatherData = null;
 
 /* ========================================
