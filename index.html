@@ -56,34 +56,45 @@
                                max="180">
                         <span class="unit">°</span>
                     </div>
+                </div>
+                
+                <!-- RECHERCHE PAR ADRESSE -->
+                <div class="input-row">
+                    <div style="flex: 2; min-width: 250px;">
+                        <label for="addressSearch">🔍 Rechercher par adresse:</label>
+                        <input type="text" id="addressSearch" 
+                               placeholder="Ex: Paris, France ou 10 Rue de Rivoli, Paris">
+                    </div>
                     
-                    <button id="setManualLocation">
-                        🎯 Définir position
+                    <button id="searchAddress">
+                        🔍 Rechercher
                     </button>
                 </div>
-                <div class="input-row">
-            <div style="flex: 2; min-width: 250px;">
-                <label for="addressSearch">🔍 Rechercher par adresse:</label>
-                <input type="text" id="addressSearch" 
-                       placeholder="Ex: Québec, Canada ou 1065 Av. de la Médecine, Québec">
-            </div>
-            
-            <button id="searchAddress">
-                🔍 Rechercher
-            </button>
-        </div>
 
-        <div id="addressResults" class="info" style="display: none;">
-            <strong>Résultats trouvés:</strong>
-            <div id="addressList"></div>
-        </div>
+                <!-- BOUTON UNIFIÉ DE VALIDATION -->
+                <div class="input-row">
+                    <div id="selectedLocationInfo" class="info" style="flex: 2; margin: 0; display: none;">
+                        <strong>📍 Position sélectionnée:</strong><br>
+                        <span id="selectedLocationText">Position sur la carte</span><br>
+                        <small>Coordonnées: <span id="selectedCoords">--, --</span></small>
+                    </div>
+                    
+                    <button id="validatePosition" style="display: none;">
+                        ✅ Définir cette position
+                    </button>
+                </div>
+
+                <div id="addressResults" class="info" style="display: none;">
+                    <strong>Résultats trouvés:</strong>
+                    <div id="addressList"></div>
+                </div>
             </div>
             
             <!-- Carte interactive -->
             <div id="map"></div>
             
             <div class="info">
-                💡 <strong>Astuce:</strong> Cliquez directement sur la carte pour choisir une position
+                💡 <strong>Astuce:</strong> Cliquez directement sur la carte pour choisir une position ou utilisez la recherche d'adresse
             </div>
         </div>
         
@@ -105,8 +116,8 @@
             <!-- Affichage météo actuelle -->
             <div id="currentWeather"></div>
             
-            <!-- Affichage prévisions -->
-            <div id="forecast"></div>
+            <!-- Affichage prévisions horaires -->
+            <div id="hourlyForecast"></div>
         </div>
         
         <!-- SECTION CALCUL SOLAIRE -->
@@ -223,7 +234,7 @@
             <div class="success">
                 <h4>🚀 Fonctionnalités principales:</h4>
                 <ul style="text-align: left; margin: 10px 0;">
-                    <li>✅ Météo actuelle et prévisions 7 jours</li>
+                    <li>✅ Météo actuelle et prévisions horaires 10h</li>
                     <li>✅ Position solaire en temps réel</li>
                     <li>✅ Calcul précis du rayonnement solaire</li>
                     <li>✅ Recommandations personnalisées pour vos rideaux</li>
@@ -253,5 +264,6 @@
     <script src="js/script.js"></script>
 </body>
 </html>
+
 
 
