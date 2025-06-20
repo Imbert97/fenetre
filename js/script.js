@@ -2,11 +2,12 @@
    VARIABLES GLOBALES
 ======================================== */
 
-let map, marker, lat = 46.813859, lng = -71.208055; 
+let map, marker, lat = 48.8566, lng = 2.3522; // Paris par défaut
 let weatherData = null;
+let tempSelectedPosition = null;
 
 /* ========================================
-   CODES MÉTÉO WMO
+   CODES MÉTÉO WMO AMÉLIORÉS
 ======================================== */
 
 const weatherCodes = {
@@ -41,21 +42,42 @@ const weatherCodes = {
 };
 
 /* ========================================
-   ICÔNES MÉTÉO
+   ICÔNES MÉTÉO AMÉLIORÉES
 ======================================== */
 
-const weatherIcons = {
-    0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
-    45: "🌫️", 48: "🌫️",
-    51: "🌦️", 53: "🌦️", 55: "🌦️",
-    56: "🌦️", 57: "🌦️",
-    61: "🌧️", 63: "🌧️", 65: "🌧️",
-    66: "🌧️", 67: "🌧️",
-    71: "🌨️", 73: "🌨️", 75: "🌨️", 77: "🌨️",
-    80: "🌦️", 81: "🌦️", 82: "🌦️",
-    85: "🌨️", 86: "🌨️",
-    95: "⛈️", 96: "⛈️", 99: "⛈️"
-};
+function getWeatherIcon(code, isDay = true) {
+    const icons = {
+        0: isDay ? "☀️" : "🌙",  // Ciel dégagé
+        1: isDay ? "🌤️" : "🌙", // Principalement dégagé
+        2: "⛅",                 // Partiellement nuageux
+        3: "☁️",                 // Couvert
+        45: "🌫️",               // Brouillard
+        48: "🌫️",               // Brouillard givrant
+        51: "🌦️",               // Bruine légère
+        53: "🌦️",               // Bruine modérée
+        55: "🌦️",               // Bruine dense
+        56: "🌦️",               // Bruine verglaçante légère
+        57: "🌦️",               // Bruine verglaçante dense
+        61: "🌧️",               // Pluie légère
+        63: "🌧️",               // Pluie modérée
+        65: "🌧️",               // Pluie forte
+        66: "🌧️",               // Pluie verglaçante légère
+        67: "🌧️",               // Pluie verglaçante forte
+        71: "🌨️",               // Neige légère
+        73: "🌨️",               // Neige modérée
+        75: "🌨️",               // Neige forte
+        77: "🌨️",               // Grains de neige
+        80: "🌦️",               // Averses légères
+        81: "🌦️",               // Averses modérées
+        82: "🌦️",               // Averses violentes
+        85: "🌨️",               // Averses de neige légères
+        86: "🌨️",               // Averses de neige fortes
+        95: "⛈️",                // Orage
+        96: "⛈️",                // Orage avec grêle légère
+        99: "⛈️"                 // Orage avec grêle forte
+    };
+    return icons[code] || "🌍";
+}
 
 /* ========================================
    INITIALISATION DE LA CARTE
@@ -77,24 +99,37 @@ function initMap() {
     
     // Gérer les clics sur la carte
     map.on('click', function(e) {
-        lat = e.latlng.lat;
-        lng = e.latlng.lng;
+        tempSelectedPosition = {
+            lat: e.latlng.lat,
+            lng: e.latlng.lng,
+            name: "Position sur la carte"
+        };
         
-        if (marker) {
-            map.removeLayer(marker);
-        }
-        
-        marker = L.marker([lat, lng]).addTo(map)
-            .bindPopup(`📍 Position: ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
-            .openPopup();
-        
-        updateLocationDisplay();
+        showPositionValidation();
+        updateMapPreview(tempSelectedPosition.lat, tempSelectedPosition.lng, tempSelectedPosition.name);
     });
 }
 
 /* ========================================
-   GESTION DE LA LOCALISATION
+   GESTION UNIFIÉE DES POSITIONS
 ======================================== */
+
+function showPositionValidation() {
+    if (!tempSelectedPosition) return;
+    
+    document.getElementById('selectedLocationText').textContent = tempSelectedPosition.name;
+    document.getElementById('selectedCoords').textContent = 
+        `${tempSelectedPosition.lat.toFixed(4)}, ${tempSelectedPosition.lng.toFixed(4)}`;
+    
+    document.getElementById('selectedLocationInfo').style.display = 'block';
+    document.getElementById('validatePosition').style.display = 'block';
+}
+
+function hidePositionValidation() {
+    document.getElementById('selectedLocationInfo').style.display = 'none';
+    document.getElementById('validatePosition').style.display = 'none';
+    tempSelectedPosition = null;
+}
 
 function updateLocationDisplay() {
     document.getElementById('currentLat').textContent = lat.toFixed(4);
@@ -119,6 +154,7 @@ function getCurrentLocation() {
                     .openPopup();
                 
                 updateLocationDisplay();
+                hidePositionValidation();
             },
             function(error) {
                 alert('Erreur de géolocalisation: ' + error.message);
@@ -148,20 +184,144 @@ function setManualLocation() {
         return;
     }
     
-    lat = inputLat;
-    lng = inputLng;
+    tempSelectedPosition = {
+        lat: inputLat,
+        lng: inputLng,
+        name: "Position manuelle"
+    };
     
-    map.setView([lat, lng], 10);
+    showPositionValidation();
+    updateMapPreview(tempSelectedPosition.lat, tempSelectedPosition.lng, tempSelectedPosition.name);
+}
+
+function validatePosition() {
+    if (!tempSelectedPosition) {
+        alert('Aucune position sélectionnée à valider');
+        return;
+    }
+    
+    lat = tempSelectedPosition.lat;
+    lng = tempSelectedPosition.lng;
+    
+    map.setView([lat, lng], 12);
     
     if (marker) {
         map.removeLayer(marker);
     }
     
     marker = L.marker([lat, lng]).addTo(map)
-        .bindPopup(`📍 Position manuelle: ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+        .bindPopup(`✅ POSITION VALIDÉE<br>📍 ${tempSelectedPosition.name}<br>Coordonnées: ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
         .openPopup();
     
     updateLocationDisplay();
+    hidePositionValidation();
+    
+    // Vider les champs
+    document.getElementById('manualLat').value = '';
+    document.getElementById('manualLng').value = '';
+    document.getElementById('addressSearch').value = '';
+    
+    // Message de confirmation
+    showSuccessMessage('✅ Position validée avec succès !');
+}
+
+function updateMapPreview(latitude, longitude, displayName) {
+    map.setView([latitude, longitude], 12);
+    
+    if (marker) {
+        map.removeLayer(marker);
+    }
+    
+    marker = L.marker([latitude, longitude]).addTo(map)
+        .bindPopup(`🔍 APERÇU<br>📍 ${displayName}<br>Coordonnées: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}<br><small>Cliquez sur "Définir cette position" pour confirmer</small>`)
+        .openPopup();
+}
+
+function showSuccessMessage(message) {
+    const successDiv = document.createElement('div');
+    successDiv.className = 'success';
+    successDiv.style.margin = '10px 0';
+    successDiv.innerHTML = message;
+    
+    const container = document.querySelector('.input-group');
+    container.appendChild(successDiv);
+    
+    setTimeout(() => {
+        successDiv.remove();
+    }, 3000);
+}
+
+/* ========================================
+   RECHERCHE PAR ADRESSE
+======================================== */
+
+async function searchAddress() {
+    const address = document.getElementById('addressSearch').value.trim();
+    
+    if (!address) {
+        alert('Veuillez entrer une adresse à rechercher');
+        return;
+    }
+    
+    try {
+        hidePositionValidation();
+        
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5&addressdetails=1`
+        );
+        
+        if (!response.ok) {
+            throw new Error(`Erreur de recherche: ${response.status}`);
+        }
+        
+        const results = await response.json();
+        displayAddressResults(results);
+        
+    } catch (error) {
+        console.error('Erreur lors de la recherche d\'adresse:', error);
+        alert('Erreur lors de la recherche: ' + error.message);
+    }
+}
+
+function displayAddressResults(results) {
+    const resultsDiv = document.getElementById('addressResults');
+    const listDiv = document.getElementById('addressList');
+    
+    if (results.length === 0) {
+        listDiv.innerHTML = '<p style="color: #d63031;">Aucune adresse trouvée. Essayez une recherche différente.</p>';
+        resultsDiv.style.display = 'block';
+        return;
+    }
+    
+    let html = '';
+    results.forEach((result, index) => {
+        html += `
+            <div class="weather-card" style="cursor: pointer; margin: 10px 0;" 
+                 onclick="selectAddressResult(${result.lat}, ${result.lon}, '${result.display_name.replace(/'/g, "\\'")}')">
+                <strong>📍 ${result.display_name}</strong>
+                <p style="font-size: 0.9em; color: #636e72; margin: 5px 0;">
+                    Coordonnées: ${parseFloat(result.lat).toFixed(4)}, ${parseFloat(result.lon).toFixed(4)}
+                </p>
+            </div>
+        `;
+    });
+    
+    listDiv.innerHTML = html;
+    resultsDiv.style.display = 'block';
+}
+
+function selectAddressResult(latitude, longitude, displayName) {
+    tempSelectedPosition = {
+        lat: parseFloat(latitude),
+        lng: parseFloat(longitude),
+        name: displayName
+    };
+    
+    showPositionValidation();
+    updateMapPreview(tempSelectedPosition.lat, tempSelectedPosition.lng, tempSelectedPosition.name);
+    
+    // Masquer les résultats de recherche
+    document.getElementById('addressResults').style.display = 'none';
 }
 
 /* ========================================
@@ -173,7 +333,7 @@ async function getWeatherData() {
         document.getElementById('loadingIndicator').style.display = 'block';
         
         const response = await fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,shortwave_radiation,direct_radiation,diffuse_radiation&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max&timezone=auto&forecast_days=7`
+            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,shortwave_radiation,direct_radiation,diffuse_radiation&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,is_day&timezone=auto&forecast_hours=24`
         );
         
         if (!response.ok) {
@@ -182,6 +342,7 @@ async function getWeatherData() {
         
         weatherData = await response.json();
         displayWeatherData();
+        displayHourlyForecast();
         
     } catch (error) {
         console.error('Erreur lors de la récupération des données météo:', error);
@@ -199,12 +360,11 @@ function displayWeatherData() {
     if (!weatherData) return;
     
     const current = weatherData.current;
-    const daily = weatherData.daily;
     
     // Affichage des conditions actuelles
     const currentWeatherDiv = document.getElementById('currentWeather');
     const weatherCode = current.weather_code;
-    const weatherIcon = weatherIcons[weatherCode] || "🌍";
+    const weatherIcon = getWeatherIcon(weatherCode, true);
     const weatherDesc = weatherCodes[weatherCode] || "Conditions inconnues";
     
     currentWeatherDiv.innerHTML = `
@@ -241,33 +401,70 @@ function displayWeatherData() {
             </div>
         </div>
     `;
+}
+
+/* ========================================
+   AFFICHAGE DES PRÉVISIONS HORAIRES
+======================================== */
+
+function displayHourlyForecast() {
+    if (!weatherData || !weatherData.hourly) return;
     
-    // Affichage des prévisions 7 jours
-    const forecastDiv = document.getElementById('forecast');
-    let forecastHTML = '<h3>📅 PRÉVISIONS 7 JOURS</h3><div class="forecast-grid">';
+    const hourly = weatherData.hourly;
+    const forecastDiv = document.getElementById('hourlyForecast');
     
-    for (let i = 0; i < daily.time.length; i++) {
-        const date = new Date(daily.time[i]);
-        const dayName = date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
-        const icon = weatherIcons[daily.weather_code[i]] || "🌍";
+    // Prendre les 10 prochaines heures
+    const hours = hourly.time.slice(0, 10);
+    
+    let forecastHTML = `
+        <div class="hourly-forecast">
+            <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES</h3>
+            <div class="hourly-grid">
+    `;
+    
+    for (let i = 0; i < hours.length; i++) {
+        const datetime = new Date(hours[i]);
+        const hour = datetime.getHours();
+        const timeStr = `${hour.toString().padStart(2, '0')}h`;
+        
+        const temp = Math.round(hourly.temperature_2m[i]);
+        const tempFeel = Math.round(hourly.apparent_temperature[i]);
+        const humidity = hourly.relative_humidity_2m[i];
+        const precipitation = hourly.precipitation[i];
+        const windSpeed = Math.round(hourly.wind_speed_10m[i]);
+        const windDir = hourly.wind_direction_10m[i];
+        const pressure = Math.round(hourly.surface_pressure[i]);
+        const weatherCode = hourly.weather_code[i];
+        const isDay = hourly.is_day[i] === 1;
+        
+        const icon = getWeatherIcon(weatherCode, isDay);
+        const description = weatherCodes[weatherCode] || "Inconnu";
         
         forecastHTML += `
-            <div class="forecast-day">
-                <div class="forecast-date">${dayName}</div>
-                <div class="weather-icon">${icon}</div>
-                <div class="forecast-temps">
-                    <span class="temp-max">${Math.round(daily.temperature_2m_max[i])}°</span>
-                    <span class="temp-min">${Math.round(daily.temperature_2m_min[i])}°</span>
-                </div>
-                <div style="font-size: 0.9em; color: #636e72;">
-                    💧 ${daily.precipitation_sum[i]} mm<br>
-                    💨 ${Math.round(daily.wind_speed_10m_max[i])} km/h
+            <div class="hourly-item">
+                <div class="hourly-time">${timeStr}</div>
+                <div class="hourly-icon">${icon}</div>
+                <div class="hourly-temp">${temp}°C</div>
+                <div class="hourly-details">
+                    <div>🌡️ Ressenti: ${tempFeel}°C</div>
+                    <div>💧 Humidité: ${humidity}%</div>
+                    <div>🌧️ Pluie: ${precipitation}mm</div>
+                    <div>💨 Vent: ${windSpeed}km/h</div>
+                    <div>🧭 Dir: ${windDir}°</div>
+                    <div>🌊 Pression: ${pressure}hPa</div>
                 </div>
             </div>
         `;
     }
     
-    forecastHTML += '</div>';
+    forecastHTML += `
+            </div>
+            <div class="info" style="margin-top: 20px; background: rgba(255,255,255,0.2); color: white; border: none;">
+                💡 <strong>Conseil rideaux:</strong> Consultez ces prévisions pour planifier l'ouverture/fermeture de vos rideaux selon la température et l'ensoleillement attendus.
+            </div>
+        </div>
+    `;
+    
     forecastDiv.innerHTML = forecastHTML;
 }
 
@@ -573,88 +770,7 @@ function calculateSolarRadiation() {
         </div>
     `;
 }
-/* ========================================
-   RECHERCHE PAR ADRESSE (GEOCODING) - NOUVEAU CODE
-======================================== */
 
-async function searchAddress() {
-    const address = document.getElementById('addressSearch').value.trim();
-    
-    if (!address) {
-        alert('Veuillez entrer une adresse à rechercher');
-        return;
-    }
-    
-    try {
-        // Utilisation de l'API Nominatim (OpenStreetMap) - gratuite
-        const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5&addressdetails=1`
-        );
-        
-        if (!response.ok) {
-            throw new Error(`Erreur de recherche: ${response.status}`);
-        }
-        
-        const results = await response.json();
-        displayAddressResults(results);
-        
-    } catch (error) {
-        console.error('Erreur lors de la recherche d\'adresse:', error);
-        alert('Erreur lors de la recherche: ' + error.message);
-    }
-}
-
-function displayAddressResults(results) {
-    const resultsDiv = document.getElementById('addressResults');
-    const listDiv = document.getElementById('addressList');
-    
-    if (results.length === 0) {
-        listDiv.innerHTML = '<p style="color: #d63031;">Aucune adresse trouvée. Essayez une recherche différente.</p>';
-        resultsDiv.style.display = 'block';
-        return;
-    }
-    
-    let html = '';
-    results.forEach((result, index) => {
-        html += `
-            <div class="weather-card" style="cursor: pointer; margin: 10px 0;" 
-                 onclick="selectAddress(${result.lat}, ${result.lon}, '${result.display_name.replace(/'/g, "\\'")}')">
-                <strong>📍 ${result.display_name}</strong>
-                <p style="font-size: 0.9em; color: #636e72; margin: 5px 0;">
-                    Coordonnées: ${parseFloat(result.lat).toFixed(4)}, ${parseFloat(result.lon).toFixed(4)}
-                </p>
-            </div>
-        `;
-    });
-    
-    listDiv.innerHTML = html;
-    resultsDiv.style.display = 'block';
-}
-
-function selectAddress(latitude, longitude, displayName) {
-    lat = parseFloat(latitude);
-    lng = parseFloat(longitude);
-    
-    // Mettre à jour la carte
-    map.setView([lat, lng], 12);
-    
-    if (marker) {
-        map.removeLayer(marker);
-    }
-    
-    marker = L.marker([lat, lng]).addTo(map)
-        .bindPopup(`📍 ${displayName}<br>Coordonnées: ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
-        .openPopup();
-    
-    // Mettre à jour l'affichage
-    updateLocationDisplay();
-    
-    // Masquer les résultats
-    document.getElementById('addressResults').style.display = 'none';
-    
-    // Vider le champ de recherche
-    document.getElementById('addressSearch').value = '';
-}
 /* ========================================
    INITIALISATION AU CHARGEMENT DE LA PAGE
 ======================================== */
@@ -668,13 +784,42 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Ajouter les event listeners
     document.getElementById('getCurrentLocation').addEventListener('click', getCurrentLocation);
-    document.getElementById('setManualLocation').addEventListener('click', setManualLocation);
     document.getElementById('getWeather').addEventListener('click', getWeatherData);
     document.getElementById('calculateSolar').addEventListener('click', calculateSolarRadiation);
     document.getElementById('wallOrientation').addEventListener('change', toggleCustomAzimuth);
     
-    // 🔥 AJOUTEZ CES 2 NOUVELLES LIGNES ICI 🔥
+    // Event listeners pour la gestion unifiée des positions
+    document.getElementById('validatePosition').addEventListener('click', validatePosition);
     document.getElementById('searchAddress').addEventListener('click', searchAddress);
+    
+    // Event listeners pour les coordonnées manuelles
+    document.getElementById('manualLat').addEventListener('input', function() {
+        const lat = parseFloat(this.value);
+        const lng = parseFloat(document.getElementById('manualLng').value);
+        if (!isNaN(lat) && !isNaN(lng)) {
+            tempSelectedPosition = {
+                lat: lat,
+                lng: lng,
+                name: "Position manuelle"
+            };
+            showPositionValidation();
+            updateMapPreview(lat, lng, "Position manuelle");
+        }
+    });
+    
+    document.getElementById('manualLng').addEventListener('input', function() {
+        const lat = parseFloat(document.getElementById('manualLat').value);
+        const lng = parseFloat(this.value);
+        if (!isNaN(lat) && !isNaN(lng)) {
+            tempSelectedPosition = {
+                lat: lat,
+                lng: lng,
+                name: "Position manuelle"
+            };
+            showPositionValidation();
+            updateMapPreview(lat, lng, "Position manuelle");
+        }
+    });
     
     // Permettre la recherche avec la touche Entrée
     document.getElementById('addressSearch').addEventListener('keypress', function(e) {
@@ -683,6 +828,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Récupérer automatiquement les données météo pour Paris au démarrage
     getWeatherData();
 });
+
 
