@@ -673,6 +673,17 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('calculateSolar').addEventListener('click', calculateSolarRadiation);
     document.getElementById('wallOrientation').addEventListener('change', toggleCustomAzimuth);
     
+    // 🔥 AJOUTEZ CES 2 NOUVELLES LIGNES ICI 🔥
+    document.getElementById('searchAddress').addEventListener('click', searchAddress);
+    
+    // Permettre la recherche avec la touche Entrée
+    document.getElementById('addressSearch').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchAddress();
+        }
+    });
+    
     // Récupérer automatiquement les données météo pour Paris au démarrage
     getWeatherData();
 });
+
