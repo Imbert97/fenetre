@@ -573,7 +573,88 @@ function calculateSolarRadiation() {
         </div>
     `;
 }
+/* ========================================
+   RECHERCHE PAR ADRESSE (GEOCODING) - NOUVEAU CODE
+======================================== */
 
+async function searchAddress() {
+    const address = document.getElementById('addressSearch').value.trim();
+    
+    if (!address) {
+        alert('Veuillez entrer une adresse à rechercher');
+        return;
+    }
+    
+    try {
+        // Utilisation de l'API Nominatim (OpenStreetMap) - gratuite
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5&addressdetails=1`
+        );
+        
+        if (!response.ok) {
+            throw new Error(`Erreur de recherche: ${response.status}`);
+        }
+        
+        const results = await response.json();
+        displayAddressResults(results);
+        
+    } catch (error) {
+        console.error('Erreur lors de la recherche d\'adresse:', error);
+        alert('Erreur lors de la recherche: ' + error.message);
+    }
+}
+
+function displayAddressResults(results) {
+    const resultsDiv = document.getElementById('addressResults');
+    const listDiv = document.getElementById('addressList');
+    
+    if (results.length === 0) {
+        listDiv.innerHTML = '<p style="color: #d63031;">Aucune adresse trouvée. Essayez une recherche différente.</p>';
+        resultsDiv.style.display = 'block';
+        return;
+    }
+    
+    let html = '';
+    results.forEach((result, index) => {
+        html += `
+            <div class="weather-card" style="cursor: pointer; margin: 10px 0;" 
+                 onclick="selectAddress(${result.lat}, ${result.lon}, '${result.display_name.replace(/'/g, "\\'")}')">
+                <strong>📍 ${result.display_name}</strong>
+                <p style="font-size: 0.9em; color: #636e72; margin: 5px 0;">
+                    Coordonnées: ${parseFloat(result.lat).toFixed(4)}, ${parseFloat(result.lon).toFixed(4)}
+                </p>
+            </div>
+        `;
+    });
+    
+    listDiv.innerHTML = html;
+    resultsDiv.style.display = 'block';
+}
+
+function selectAddress(latitude, longitude, displayName) {
+    lat = parseFloat(latitude);
+    lng = parseFloat(longitude);
+    
+    // Mettre à jour la carte
+    map.setView([lat, lng], 12);
+    
+    if (marker) {
+        map.removeLayer(marker);
+    }
+    
+    marker = L.marker([lat, lng]).addTo(map)
+        .bindPopup(`📍 ${displayName}<br>Coordonnées: ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+        .openPopup();
+    
+    // Mettre à jour l'affichage
+    updateLocationDisplay();
+    
+    // Masquer les résultats
+    document.getElementById('addressResults').style.display = 'none';
+    
+    // Vider le champ de recherche
+    document.getElementById('addressSearch').value = '';
+}
 /* ========================================
    INITIALISATION AU CHARGEMENT DE LA PAGE
 ======================================== */
