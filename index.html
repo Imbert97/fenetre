@@ -61,6 +61,22 @@
                         🎯 Définir position
                     </button>
                 </div>
+                <div class="input-row">
+            <div style="flex: 2; min-width: 250px;">
+                <label for="addressSearch">🔍 Rechercher par adresse:</label>
+                <input type="text" id="addressSearch" 
+                       placeholder="Ex: Paris, France ou 10 Rue de Rivoli, Paris">
+            </div>
+            
+            <button id="searchAddress">
+                🔍 Rechercher
+            </button>
+        </div>
+
+        <div id="addressResults" class="info" style="display: none;">
+            <strong>Résultats trouvés:</strong>
+            <div id="addressList"></div>
+        </div>
             </div>
             
             <!-- Carte interactive -->
