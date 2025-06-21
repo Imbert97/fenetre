@@ -621,5 +621,3 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     getWeatherData();
 });
-
-
