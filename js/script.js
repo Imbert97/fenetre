@@ -357,50 +357,6 @@ async function getWeatherData() {
 ======================================== */
 
 function displayWeatherData() {
-    if (!weatherData) return;
-    
-    const current = weatherData.current;
-    
-    // Affichage des conditions actuelles
-    const currentWeatherDiv = document.getElementById('currentWeather');
-    const weatherCode = current.weather_code;
-    const weatherIcon = getWeatherIcon(weatherCode, true);
-    const weatherDesc = weatherCodes[weatherCode] || "Conditions inconnues";
-    
-    currentWeatherDiv.innerHTML = `
-        <div class="weather-current">
-            <h3>🌍 MÉTÉO ACTUELLE</h3>
-            <div class="weather-icon">${weatherIcon}</div>
-            <div class="temperature">${Math.round(current.temperature_2m)}°C</div>
-            <div class="weather-description">${weatherDesc}</div>
-            <div class="weather-grid">
-                <div class="weather-card">
-                    <strong>🌡️ Ressenti:</strong><br>
-                    ${Math.round(current.apparent_temperature)}°C
-                </div>
-                <div class="weather-card">
-                    <strong>💧 Humidité:</strong><br>
-                    ${current.relative_humidity_2m}%
-                </div>
-                <div class="weather-card">
-                    <strong>🌊 Pression:</strong><br>
-                    ${Math.round(current.surface_pressure)} hPa
-                </div>
-                <div class="weather-card">
-                    <strong>💨 Vent:</strong><br>
-                    ${Math.round(current.wind_speed_10m)} km/h
-                </div>
-                <div class="weather-card">
-                    <strong>🧭 Direction vent:</strong><br>
-                    ${current.wind_direction_10m}°
-                </div>
-                <div class="weather-card">
-                    <strong>🌧️ Précipitations:</strong><br>
-                    ${current.precipitation} mm
-                </div>
-            </div>
-        </div>
-    `;
 }
 
 /* ========================================
