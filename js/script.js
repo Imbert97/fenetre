@@ -616,6 +616,7 @@ function calculateSolarRadiation() {
     const customAzimuth = document.getElementById('customAzimuth');
     const wallTilt = parseFloat(document.getElementById('wallTilt').value);
     const albedo = parseFloat(document.getElementById('albedo').value);
+    const windowHeight = parseFloat(document.getElementById('windowHeight').value) || 0;
 
     let surfaceAzimuth;
     if (orientationSelect.value === 'custom') {
@@ -631,8 +632,8 @@ function calculateSolarRadiation() {
     // Utilisation des données météo actuelles
     const current = weatherData.current;
     const GHI = current.shortwave_radiation || 800; // W/m²
-    const DNI = current.direct_radiation || 900; // W/m²
-    const DHI = current.diffuse_radiation || 100; // W/m²
+    const DNI = current.direct_radiation || 900;    // W/m²
+    const DHI = current.diffuse_radiation || 100;   // W/m²
 
     // Calcul de la position solaire actuelle
     const now = new Date();
@@ -641,14 +642,26 @@ function calculateSolarRadiation() {
     // Calcul de l'angle d'incidence
     const aoi = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPos.zenith, solarPos.azimuth);
 
-    // Calcul du rayonnement sur le mur
+    // Rayonnement direct
     let directOnWall = 0;
     if (aoi < 90) {
         directOnWall = DNI * Math.max(0, cosd(aoi));
     }
 
+    // Rayonnement diffus
     const diffuseOnWall = DHI * (1 + cosd(wallTilt)) / 2;
-    const reflectedOnWall = GHI * albedo * (1 - cosd(wallTilt)) / 2;
+
+    // Facteur de réduction selon la hauteur (modèle exponentiel)
+    function reflectedReductionFactor(height) {
+        if (height <= 2) return 1;
+        return Math.exp(-0.2 * (height - 2));
+    }
+    const reduction = reflectedReductionFactor(windowHeight);
+
+    // Rayonnement réfléchi avec réduction selon la hauteur
+    const reflectedOnWall = GHI * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
+
+    // Total
     const totalOnWall = directOnWall + diffuseOnWall + reflectedOnWall;
 
     // Affichage des résultats avec explications détaillées
@@ -665,6 +678,7 @@ function calculateSolarRadiation() {
                 <div><strong>🧭 Orientation mur:</strong> ${orientationText}</div>
                 <div><strong>📐 Inclinaison mur:</strong> ${wallTilt}°</div>
                 <div><strong>🌍 Albédo sol:</strong> ${albedo}</div>
+                <div><strong>🏢 Hauteur fenêtre:</strong> ${windowHeight} m</div>
             </div>
         </div>
 
@@ -674,7 +688,9 @@ function calculateSolarRadiation() {
             <ul style="text-align: left; margin: 10px 0;">
                 <li><strong>Rayonnement direct :</strong> Lumière directe du soleil</li>
                 <li><strong>Rayonnement diffus :</strong> Lumière diffusée par l'atmosphère et les nuages</li>
-                <li><strong>Rayonnement réfléchi :</strong> Lumière réfléchie par le sol</li>
+                <li><strong>Rayonnement réfléchi :</strong> Lumière réfléchie par le sol <br>
+                    <em>(diminué en fonction de la hauteur de la fenêtre)</em>
+                </li>
             </ul>
         </div>
 
@@ -700,10 +716,9 @@ function calculateSolarRadiation() {
             
             <div class="solar-card">
                 <h4>3️⃣ Rayonnement Réfléchi</h4>
-                <p><strong>Formule :</strong> GHI × albédo × (1 - cos(inclinaison_mur)) / 2</p>
-                <p><strong>Calcul :</strong> ${GHI.toFixed(1)} × ${albedo} × (1 - cos(${wallTilt}°)) / 2</p>
-                <p><strong>= ${GHI.toFixed(1)} × ${albedo} × (1 - ${cosd(wallTilt).toFixed(3)}) / 2</strong></p>
-                <p><strong>= ${GHI.toFixed(1)} × ${albedo} × ${((1 - cosd(wallTilt)) / 2).toFixed(3)}</strong></p>
+                <p><strong>Formule :</strong> GHI × albédo × (1 - cos(inclinaison_mur)) / 2 × facteur_hauteur</p>
+                <p><strong>Calcul :</strong> ${GHI.toFixed(1)} × ${albedo} × (1 - ${cosd(wallTilt).toFixed(3)}) / 2 × ${reduction.toFixed(2)}</p>
+                <p><strong>Facteur de réduction hauteur :</strong> ${reduction.toFixed(2)} (pour ${windowHeight} m)</p>
                 <p><strong>Résultat :</strong> <span style="color: #e17055;">${reflectedOnWall.toFixed(1)} W/m²</span></p>
             </div>
         </div>
@@ -770,6 +785,7 @@ function calculateSolarRadiation() {
         </div>
     `;
 }
+
 
 /* ========================================
    INITIALISATION AU CHARGEMENT DE LA PAGE
