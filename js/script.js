@@ -549,17 +549,12 @@ function calculateSolarRadiation() {
         const labels = [];
         const data = [];
         
-        // Utiliser l'heure de la première donnée météo comme référence
-        const firstWeatherTime = new Date(weatherData.hourly.time[0]);
-        const currentHourIndex = new Date().getHours();
-        
         // Trouver l'index de l'heure actuelle dans les données météo
         let startIndex = 0;
         for (let i = 0; i < weatherData.hourly.time.length; i++) {
             const weatherTime = new Date(weatherData.hourly.time[i]);
             const currentTime = new Date();
             
-            // Comparer les heures en tenant compte du fuseau horaire
             if (weatherTime.getTime() >= currentTime.getTime()) {
                 startIndex = i;
                 break;
@@ -570,7 +565,6 @@ function calculateSolarRadiation() {
         for (let i = 0; i < 10; i++) {
             const dataIndex = startIndex + i;
             
-            // Vérifier que l'index est valide
             if (dataIndex >= weatherData.hourly.time.length) break;
             
             const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
@@ -580,7 +574,6 @@ function calculateSolarRadiation() {
                 timeZone: weatherData.timezone || 'UTC'
             });
             
-            // Récupérer les données météo pour cette heure
             const GHIh = weatherData.hourly.shortwave_radiation ? 
                 weatherData.hourly.shortwave_radiation[dataIndex] : GHI;
             const DNIh = weatherData.hourly.direct_radiation ? 
@@ -588,11 +581,9 @@ function calculateSolarRadiation() {
             const DHIh = weatherData.hourly.diffuse_radiation ? 
                 weatherData.hourly.diffuse_radiation[dataIndex] : DHI;
             
-            // Calculer la position solaire pour cette heure LOCALE
             const solarPh = calculateSolarPosition(lat, lng, weatherTime);
             const aoiH = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPh.zenith, solarPh.azimuth);
             
-            // Calculs de rayonnement
             let directH = 0;
             if (aoiH < 90) directH = DNIh * Math.max(0, cosd(aoiH));
             const diffuseH = DHIh * (1 + cosd(wallTilt)) / 2;
@@ -643,9 +634,10 @@ function calculateSolarRadiation() {
                     }
                 }
             }
-        });
-    }
-} // 👈 ACCOLADE FERMANTE AJOUTÉE ICI !
+        }); // 👈 ACCOLADE FERMANTE Chart.js
+    } // 👈 ACCOLADE FERMANTE if weatherData.hourly
+} // 👈 ACCOLADE FERMANTE fonction calculateSolarRadiation
+
 
 /* ========================================
    INITIALISATION AU CHARGEMENT DE LA PAGE
