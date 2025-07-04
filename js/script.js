@@ -291,13 +291,24 @@ function displayHourlyForecast() {
     const forecastDiv = document.getElementById('hourlyForecast');
     if (!forecastDiv) return;
     
-    // Trouver l'index de l'heure actuelle
+    // ✅ CORRECTION : Obtenir l'heure actuelle dans le fuseau horaire de la localisation
     let startIndex = 0;
-    const currentTime = new Date();
+    const now = new Date();
+    
+    // Convertir l'heure actuelle dans le fuseau horaire de la localisation
+    const currentTimeInLocalTZ = new Date(now.toLocaleString("en-US", {
+        timeZone: weatherData.timezone || 'UTC'
+    }));
     
     for (let i = 0; i < hourly.time.length; i++) {
         const weatherTime = new Date(hourly.time[i]);
-        if (weatherTime.getTime() >= currentTime.getTime()) {
+        
+        // Convertir l'heure météo dans le même fuseau horaire pour comparer
+        const weatherTimeInLocalTZ = new Date(weatherTime.toLocaleString("en-US", {
+            timeZone: weatherData.timezone || 'UTC'
+        }));
+        
+        if (weatherTimeInLocalTZ >= currentTimeInLocalTZ) {
             startIndex = i;
             break;
         }
@@ -358,6 +369,7 @@ function displayHourlyForecast() {
     
     forecastDiv.innerHTML = forecastHTML;
 }
+
 
 /* ========================================
    FONCTIONS MATHÉMATIQUES SOLAIRES
