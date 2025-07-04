@@ -281,6 +281,37 @@ async function getWeatherData() {
 }
 
 /* ========================================
+   UTILITAIRE FUSEAU HORAIRE
+======================================== */
+
+function getCurrentHourInTimezone(timezone) {
+    try {
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        });
+        
+        const parts = formatter.formatToParts(now);
+        const year = parts.find(p => p.type === 'year').value;
+        const month = parts.find(p => p.type === 'month').value;
+        const day = parts.find(p => p.type === 'day').value;
+        const hour = parts.find(p => p.type === 'hour').value;
+        const minute = parts.find(p => p.type === 'minute').value;
+        
+        return parseInt(hour);
+    } catch (error) {
+        console.warn('Erreur de fuseau horaire, utilisation UTC:', error);
+        return new Date().getUTCHours();
+    }
+}
+
+/* ========================================
    AFFICHAGE DES PRÉVISIONS HORAIRES
 ======================================== */
 
@@ -291,32 +322,41 @@ function displayHourlyForecast() {
     const forecastDiv = document.getElementById('hourlyForecast');
     if (!forecastDiv) return;
     
-    // ✅ CORRECTION : Obtenir l'heure actuelle dans le fuseau horaire de la localisation
+    // 🚀 NOUVELLE APPROCHE : Calculer l'heure actuelle dans le fuseau horaire local
     let startIndex = 0;
-    const now = new Date();
+    const currentHourLocal = getCurrentHourInTimezone(weatherData.timezone || 'UTC');
     
-    // Convertir l'heure actuelle dans le fuseau horaire de la localisation
-    const currentTimeInLocalTZ = new Date(now.toLocaleString("en-US", {
-        timeZone: weatherData.timezone || 'UTC'
-    }));
-    
+    // Trouver l'index le plus proche de l'heure actuelle
     for (let i = 0; i < hourly.time.length; i++) {
         const weatherTime = new Date(hourly.time[i]);
-        
-        // Convertir l'heure météo dans le même fuseau horaire pour comparer
-        const weatherTimeInLocalTZ = new Date(weatherTime.toLocaleString("en-US", {
+        const weatherHour = new Date(weatherTime.toLocaleString('en-US', {
             timeZone: weatherData.timezone || 'UTC'
-        }));
+        })).getHours();
         
-        if (weatherTimeInLocalTZ >= currentTimeInLocalTZ) {
+        if (weatherHour >= currentHourLocal) {
             startIndex = i;
             break;
+        }
+    }
+    
+    // Si aucun index trouvé, utiliser l'index 0 (première heure disponible)
+    if (startIndex === 0 && hourly.time.length > 0) {
+        const firstWeatherTime = new Date(hourly.time[0]);
+        const firstWeatherHour = new Date(firstWeatherTime.toLocaleString('en-US', {
+            timeZone: weatherData.timezone || 'UTC'
+        })).getHours();
+        
+        if (firstWeatherHour > currentHourLocal) {
+            startIndex = 0;
         }
     }
     
     let forecastHTML = `
         <div class="hourly-forecast">
             <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${weatherData.timezone || 'UTC'})</h3>
+            <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
+                🕐 Heure locale actuelle : ${currentHourLocal}h dans le fuseau ${weatherData.timezone || 'UTC'}
+            </div>
             <div class="hourly-grid">
     `;
     
@@ -369,7 +409,6 @@ function displayHourlyForecast() {
     
     forecastDiv.innerHTML = forecastHTML;
 }
-
 
 /* ========================================
    FONCTIONS MATHÉMATIQUES SOLAIRES
@@ -583,106 +622,105 @@ function calculateSolarRadiation() {
         </div>
     `;
 
-// ------------- GRAPHIQUE CHART.JS CORRIGÉ -------------
-if (weatherData.hourly && weatherData.hourly.time) {
-    const labels = [];
-    const data = [];
-    
-    // ✅ CORRECTION : Même logique pour le graphique
-    const now = new Date();
-    const currentTimeInLocalTZ = new Date(now.toLocaleString("en-US", {
-        timeZone: weatherData.timezone || 'UTC'
-    }));
-    
-    let startIndex = 0;
-    for (let i = 0; i < weatherData.hourly.time.length; i++) {
-        const weatherTime = new Date(weatherData.hourly.time[i]);
-        const weatherTimeInLocalTZ = new Date(weatherTime.toLocaleString("en-US", {
-            timeZone: weatherData.timezone || 'UTC'
-        }));
-        
-        if (weatherTimeInLocalTZ >= currentTimeInLocalTZ) {
-            startIndex = i;
-            break;
-        }
-    }
-    
-    // Générer les 10 prochaines heures à partir de l'index trouvé
-    for (let i = 0; i < 10; i++) {
-        const dataIndex = startIndex + i;
-        
-        if (dataIndex >= weatherData.hourly.time.length) break;
-        
-        const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
-        const hourStr = weatherTime.toLocaleTimeString('fr-FR', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            timeZone: weatherData.timezone || 'UTC'
-        });
-        
-        const GHIh = weatherData.hourly.shortwave_radiation ? 
-            weatherData.hourly.shortwave_radiation[dataIndex] : GHI;
-        const DNIh = weatherData.hourly.direct_radiation ? 
-            weatherData.hourly.direct_radiation[dataIndex] : DNI;
-        const DHIh = weatherData.hourly.diffuse_radiation ? 
-            weatherData.hourly.diffuse_radiation[dataIndex] : DHI;
-        
-        const solarPh = calculateSolarPosition(lat, lng, weatherTime);
-        const aoiH = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPh.zenith, solarPh.azimuth);
-        
-        let directH = 0;
-        if (aoiH < 90) directH = DNIh * Math.max(0, cosd(aoiH));
-        const diffuseH = DHIh * (1 + cosd(wallTilt)) / 2;
-        const reflectedH = GHIh * albedo * (1 - cosd(wallTZ)) / 2 * reduction;
-        const totalH = directH + diffuseH + reflectedH;
-        
-        labels.push(hourStr);
-        data.push(Math.round(totalH));
-    }
-    
-    // Créer le graphique
-    const ctx = document.getElementById('solarIrradianceChart').getContext('2d');
-    if (solarChartInstance) {
-        solarChartInstance.destroy();
-    }
-    solarChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Rayonnement solaire sur la fenêtre (W/m²)",
-                data: data,
-                fill: true,
-                backgroundColor: "rgba(255, 206, 86, 0.2)",
-                borderColor: "#fdcb6e",
-                borderWidth: 3,
-                pointBackgroundColor: "#e17055",
-                pointRadius: 5,
-                tension: 0.35
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { display: true },
-                title: {
-                    display: true,
-                    text: `Évolution du rayonnement solaire - ${weatherData.timezone || 'UTC'}`
-                }
-            },
-            scales: {
-                y: {
-                    title: { display: true, text: "W/m²" },
-                    beginAtZero: true
-                },
-                x: {
-                    title: { display: true, text: "Heure locale" }
+    // 🚀 GRAPHIQUE CHART.JS AVEC NOUVELLE APPROCHE
+    if (weatherData.hourly && weatherData.hourly.time) {
+        const canvasElement = document.getElementById('solarIrradianceChart');
+        if (canvasElement) {
+            const labels = [];
+            const data = [];
+            
+            // Utiliser la même logique que pour l'affichage
+            const currentHourLocal = getCurrentHourInTimezone(weatherData.timezone || 'UTC');
+            
+            let startIndex = 0;
+            for (let i = 0; i < weatherData.hourly.time.length; i++) {
+                const weatherTime = new Date(weatherData.hourly.time[i]);
+                const weatherHour = new Date(weatherTime.toLocaleString('en-US', {
+                    timeZone: weatherData.timezone || 'UTC'
+                })).getHours();
+                
+                if (weatherHour >= currentHourLocal) {
+                    startIndex = i;
+                    break;
                 }
             }
+            
+            for (let i = 0; i < 10; i++) {
+                const dataIndex = startIndex + i;
+                
+                if (dataIndex >= weatherData.hourly.time.length) break;
+                
+                const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
+                const hourStr = weatherTime.toLocaleTimeString('fr-FR', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    timeZone: weatherData.timezone || 'UTC'
+                });
+                
+                const GHIh = weatherData.hourly.shortwave_radiation ? 
+                    weatherData.hourly.shortwave_radiation[dataIndex] : GHI;
+                const DNIh = weatherData.hourly.direct_radiation ? 
+                    weatherData.hourly.direct_radiation[dataIndex] : DNI;
+                const DHIh = weatherData.hourly.diffuse_radiation ? 
+                    weatherData.hourly.diffuse_radiation[dataIndex] : DHI;
+                
+                const solarPh = calculateSolarPosition(lat, lng, weatherTime);
+                const aoiH = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPh.zenith, solarPh.azimuth);
+                
+                let directH = 0;
+                if (aoiH < 90) directH = DNIh * Math.max(0, cosd(aoiH));
+                const diffuseH = DHIh * (1 + cosd(wallTilt)) / 2;
+                const reflectedH = GHIh * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
+                const totalH = directH + diffuseH + reflectedH;
+                
+                labels.push(hourStr);
+                data.push(Math.round(totalH));
+            }
+            
+            const ctx = canvasElement.getContext('2d');
+            if (solarChartInstance) {
+                solarChartInstance.destroy();
+            }
+            solarChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "Rayonnement solaire sur la fenêtre (W/m²)",
+                        data: data,
+                        fill: true,
+                        backgroundColor: "rgba(255, 206, 86, 0.2)",
+                        borderColor: "#fdcb6e",
+                        borderWidth: 3,
+                        pointBackgroundColor: "#e17055",
+                        pointRadius: 5,
+                        tension: 0.35
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true },
+                        title: {
+                            display: true,
+                            text: `Évolution du rayonnement solaire - ${weatherData.timezone || 'UTC'}`
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: { display: true, text: "W/m²" },
+                            beginAtZero: true
+                        },
+                        x: {
+                            title: { display: true, text: "Heure locale" }
+                        }
+                    }
+                }
+            });
         }
-    });
+    }
 }
-}
+
 /* ========================================
    INITIALISATION AU CHARGEMENT DE LA PAGE
 ======================================== */
