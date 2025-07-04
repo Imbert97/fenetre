@@ -495,7 +495,7 @@ function calculateSolarRadiation() {
     const orientationText = orientationSelect.value === 'custom' ? 
         `${surfaceAzimuth}° (personnalisé)` : 
         `${orientationSelect.options[orientationSelect.selectedIndex].text}`;
-
+const timezoneInfo = weatherData.timezone ? `(${weatherData.timezone})` : '(UTC)';
 resultsDiv.innerHTML = `
     <div class="solar-current">
         <h3>☀️ CALCUL DU RAYONNEMENT SOLAIRE ${timezoneInfo}</h3>
