@@ -583,100 +583,106 @@ function calculateSolarRadiation() {
         </div>
     `;
 
-    // Graphique Chart.js
-    if (weatherData.hourly && weatherData.hourly.time) {
-        const canvasElement = document.getElementById('solarIrradianceChart');
-        if (canvasElement) {
-            const labels = [];
-            const data = [];
-            
-            let startIndex = 0;
-            for (let i = 0; i < weatherData.hourly.time.length; i++) {
-                const weatherTime = new Date(weatherData.hourly.time[i]);
-                const currentTime = new Date();
-                
-                if (weatherTime.getTime() >= currentTime.getTime()) {
-                    startIndex = i;
-                    break;
-                }
-            }
-            
-            for (let i = 0; i < 10; i++) {
-                const dataIndex = startIndex + i;
-                
-                if (dataIndex >= weatherData.hourly.time.length) break;
-                
-                const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
-                const hourStr = weatherTime.toLocaleTimeString('fr-FR', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    timeZone: weatherData.timezone || 'UTC'
-                });
-                
-                const GHIh = weatherData.hourly.shortwave_radiation ? 
-                    weatherData.hourly.shortwave_radiation[dataIndex] : GHI;
-                const DNIh = weatherData.hourly.direct_radiation ? 
-                    weatherData.hourly.direct_radiation[dataIndex] : DNI;
-                const DHIh = weatherData.hourly.diffuse_radiation ? 
-                    weatherData.hourly.diffuse_radiation[dataIndex] : DHI;
-                
-                const solarPh = calculateSolarPosition(lat, lng, weatherTime);
-                const aoiH = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPh.zenith, solarPh.azimuth);
-                
-                let directH = 0;
-                if (aoiH < 90) directH = DNIh * Math.max(0, cosd(aoiH));
-                const diffuseH = DHIh * (1 + cosd(wallTilt)) / 2;
-                const reflectedH = GHIh * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
-                const totalH = directH + diffuseH + reflectedH;
-                
-                labels.push(hourStr);
-                data.push(Math.round(totalH));
-            }
-            
-            const ctx = canvasElement.getContext('2d');
-            if (solarChartInstance) {
-                solarChartInstance.destroy();
-            }
-            solarChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: "Rayonnement solaire sur la fenêtre (W/m²)",
-                        data: data,
-                        fill: true,
-                        backgroundColor: "rgba(255, 206, 86, 0.2)",
-                        borderColor: "#fdcb6e",
-                        borderWidth: 3,
-                        pointBackgroundColor: "#e17055",
-                        pointRadius: 5,
-                        tension: 0.35
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { display: true },
-                        title: {
-                            display: true,
-                            text: `Évolution du rayonnement solaire - ${weatherData.timezone || 'UTC'}`
-                        }
-                    },
-                    scales: {
-                        y: {
-                            title: { display: true, text: "W/m²" },
-                            beginAtZero: true
-                        },
-                        x: {
-                            title: { display: true, text: "Heure locale" }
-                        }
-                    }
-                }
-            });
+// ------------- GRAPHIQUE CHART.JS CORRIGÉ -------------
+if (weatherData.hourly && weatherData.hourly.time) {
+    const labels = [];
+    const data = [];
+    
+    // ✅ CORRECTION : Même logique pour le graphique
+    const now = new Date();
+    const currentTimeInLocalTZ = new Date(now.toLocaleString("en-US", {
+        timeZone: weatherData.timezone || 'UTC'
+    }));
+    
+    let startIndex = 0;
+    for (let i = 0; i < weatherData.hourly.time.length; i++) {
+        const weatherTime = new Date(weatherData.hourly.time[i]);
+        const weatherTimeInLocalTZ = new Date(weatherTime.toLocaleString("en-US", {
+            timeZone: weatherData.timezone || 'UTC'
+        }));
+        
+        if (weatherTimeInLocalTZ >= currentTimeInLocalTZ) {
+            startIndex = i;
+            break;
         }
     }
+    
+    // Générer les 10 prochaines heures à partir de l'index trouvé
+    for (let i = 0; i < 10; i++) {
+        const dataIndex = startIndex + i;
+        
+        if (dataIndex >= weatherData.hourly.time.length) break;
+        
+        const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
+        const hourStr = weatherTime.toLocaleTimeString('fr-FR', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: weatherData.timezone || 'UTC'
+        });
+        
+        const GHIh = weatherData.hourly.shortwave_radiation ? 
+            weatherData.hourly.shortwave_radiation[dataIndex] : GHI;
+        const DNIh = weatherData.hourly.direct_radiation ? 
+            weatherData.hourly.direct_radiation[dataIndex] : DNI;
+        const DHIh = weatherData.hourly.diffuse_radiation ? 
+            weatherData.hourly.diffuse_radiation[dataIndex] : DHI;
+        
+        const solarPh = calculateSolarPosition(lat, lng, weatherTime);
+        const aoiH = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPh.zenith, solarPh.azimuth);
+        
+        let directH = 0;
+        if (aoiH < 90) directH = DNIh * Math.max(0, cosd(aoiH));
+        const diffuseH = DHIh * (1 + cosd(wallTilt)) / 2;
+        const reflectedH = GHIh * albedo * (1 - cosd(wallTZ)) / 2 * reduction;
+        const totalH = directH + diffuseH + reflectedH;
+        
+        labels.push(hourStr);
+        data.push(Math.round(totalH));
+    }
+    
+    // Créer le graphique
+    const ctx = document.getElementById('solarIrradianceChart').getContext('2d');
+    if (solarChartInstance) {
+        solarChartInstance.destroy();
+    }
+    solarChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Rayonnement solaire sur la fenêtre (W/m²)",
+                data: data,
+                fill: true,
+                backgroundColor: "rgba(255, 206, 86, 0.2)",
+                borderColor: "#fdcb6e",
+                borderWidth: 3,
+                pointBackgroundColor: "#e17055",
+                pointRadius: 5,
+                tension: 0.35
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: true },
+                title: {
+                    display: true,
+                    text: `Évolution du rayonnement solaire - ${weatherData.timezone || 'UTC'}`
+                }
+            },
+            scales: {
+                y: {
+                    title: { display: true, text: "W/m²" },
+                    beginAtZero: true
+                },
+                x: {
+                    title: { display: true, text: "Heure locale" }
+                }
+            }
+        }
+    });
 }
-
+}
 /* ========================================
    INITIALISATION AU CHARGEMENT DE LA PAGE
 ======================================== */
