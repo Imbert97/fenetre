@@ -645,7 +645,7 @@ if (weatherData.hourly && weatherData.hourly.time) {
         }
     });
 }
-
+}
 
 /* ========================================
    INITIALISATION AU CHARGEMENT DE LA PAGE
