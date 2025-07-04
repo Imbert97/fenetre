@@ -272,28 +272,50 @@ async function getWeatherData() {
 
 function displayHourlyForecast() {
     if (!weatherData || !weatherData.hourly) return;
+    
     const hourly = weatherData.hourly;
     const forecastDiv = document.getElementById('hourlyForecast');
-    const hours = hourly.time.slice(0, 10);
+    
+    // Trouver l'index de l'heure actuelle
+    let startIndex = 0;
+    const currentTime = new Date();
+    
+    for (let i = 0; i < hourly.time.length; i++) {
+        const weatherTime = new Date(hourly.time[i]);
+        if (weatherTime.getTime() >= currentTime.getTime()) {
+            startIndex = i;
+            break;
+        }
+    }
+    
     let forecastHTML = `
         <div class="hourly-forecast">
-            <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES</h3>
+            <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${weatherData.timezone || 'UTC'})</h3>
             <div class="hourly-grid">
     `;
-    for (let i = 0; i < hours.length; i++) {
-        const datetime = new Date(hours[i]);
-        const hour = datetime.getHours();
-        const timeStr = `${hour.toString().padStart(2, '0')}h`;
-        const temp = Math.round(hourly.temperature_2m[i]);
-        const tempFeel = Math.round(hourly.apparent_temperature[i]);
-        const humidity = hourly.relative_humidity_2m[i];
-        const precipitation = hourly.precipitation[i];
-        const windSpeed = Math.round(hourly.wind_speed_10m[i]);
-        const windDir = hourly.wind_direction_10m[i];
-        const pressure = Math.round(hourly.surface_pressure[i]);
-        const weatherCode = hourly.weather_code[i];
-        const isDay = hourly.is_day[i] === 1;
+    
+    // Afficher les 10 prochaines heures
+    for (let i = 0; i < 10 && (startIndex + i) < hourly.time.length; i++) {
+        const dataIndex = startIndex + i;
+        const weatherTime = new Date(hourly.time[dataIndex]);
+        
+        const timeStr = weatherTime.toLocaleTimeString('fr-FR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: weatherData.timezone || 'UTC'
+        });
+        
+        const temp = Math.round(hourly.temperature_2m[dataIndex]);
+        const tempFeel = Math.round(hourly.apparent_temperature[dataIndex]);
+        const humidity = hourly.relative_humidity_2m[dataIndex];
+        const precipitation = hourly.precipitation[dataIndex];
+        const windSpeed = Math.round(hourly.wind_speed_10m[dataIndex]);
+        const windDir = hourly.wind_direction_10m[dataIndex];
+        const pressure = Math.round(hourly.surface_pressure[dataIndex]);
+        const weatherCode = hourly.weather_code[dataIndex];
+        const isDay = hourly.is_day[dataIndex] === 1;
         const icon = getWeatherIcon(weatherCode, isDay);
+        
         forecastHTML += `
             <div class="hourly-item">
                 <div class="hourly-time">${timeStr}</div>
@@ -310,6 +332,7 @@ function displayHourlyForecast() {
             </div>
         `;
     }
+    
     forecastHTML += `
             </div>
             <div class="info" style="margin-top: 20px; background: rgba(255,255,255,0.2); color: white; border: none;">
@@ -317,8 +340,10 @@ function displayHourlyForecast() {
             </div>
         </div>
     `;
+    
     forecastDiv.innerHTML = forecastHTML;
 }
+
 
 /* ========================================
    FONCTIONS MATHÉMATIQUES SOLAIRES
@@ -471,117 +496,156 @@ function calculateSolarRadiation() {
         `${surfaceAzimuth}° (personnalisé)` : 
         `${orientationSelect.options[orientationSelect.selectedIndex].text}`;
 
-    resultsDiv.innerHTML = `
-        <div class="solar-current">
-            <h3>☀️ CALCUL DU RAYONNEMENT SOLAIRE</h3>
-            <div class="weather-grid">
-                <div><strong>📍 Position:</strong> ${lat.toFixed(4)}°, ${lng.toFixed(4)}°</div>
-                <div><strong>🧭 Orientation mur:</strong> ${orientationText}</div>
-                <div><strong>📐 Inclinaison mur:</strong> ${wallTilt}°</div>
-                <div><strong>🌍 Albédo sol:</strong> ${albedo}</div>
-                <div><strong>🏢 Hauteur fenêtre:</strong> ${windowHeight} m</div>
-            </div>
-        </div>
-        <div class="info" style="margin: 20px 0;">
-            <h3>🔬 EXPLICATIONS DU CALCUL</h3>
-            <ul style="text-align: left; margin: 10px 0;">
-                <li><strong>Rayonnement direct :</strong> Lumière directe du soleil</li>
-                <li><strong>Rayonnement diffus :</strong> Lumière diffusée par l'atmosphère et les nuages</li>
-                <li><strong>Rayonnement réfléchi :</strong> Lumière réfléchie par le sol (diminué selon la hauteur de la fenêtre)</li>
-            </ul>
-        </div>
-        <h3>🧮 DÉTAIL DES CALCULS</h3>
+resultsDiv.innerHTML = `
+    <div class="solar-current">
+        <h3>☀️ CALCUL DU RAYONNEMENT SOLAIRE ${timezoneInfo}</h3>
         <div class="weather-grid">
-            <div class="solar-card">
-                <h4>1️⃣ Rayonnement Direct</h4>
-                <p><strong>Résultat :</strong> <span style="color: #e17055;">${directOnWall.toFixed(1)} W/m²</span></p>
-            </div>
-            <div class="solar-card">
-                <h4>2️⃣ Rayonnement Diffus</h4>
-                <p><strong>Résultat :</strong> <span style="color: #e17055;">${diffuseOnWall.toFixed(1)} W/m²</span></p>
-            </div>
-            <div class="solar-card">
-                <h4>3️⃣ Rayonnement Réfléchi</h4>
-                <p><strong>Facteur de réduction hauteur :</strong> ${reduction.toFixed(2)} (pour ${windowHeight} m)</p>
-                <p><strong>Résultat :</strong> <span style="color: #e17055;">${reflectedOnWall.toFixed(1)} W/m²</span></p>
+            <div><strong>📍 Position:</strong> ${lat.toFixed(4)}°, ${lng.toFixed(4)}°</div>
+            <div><strong>🕐 Fuseau horaire:</strong> ${weatherData.timezone || 'UTC'}</div>
+            <div><strong>🧭 Orientation mur:</strong> ${orientationText}</div>
+            <div><strong>📐 Inclinaison mur:</strong> ${wallTilt}°</div>
+            <div><strong>🌍 Albédo sol:</strong> ${albedo}</div>
+            <div><strong>🏢 Hauteur fenêtre:</strong> ${windowHeight} m</div>
+        </div>
+    </div>
+    <div class="info" style="margin: 20px 0;">
+        <h3>🔬 EXPLICATIONS DU CALCUL</h3>
+        <ul style="text-align: left; margin: 10px 0;">
+            <li><strong>Rayonnement direct :</strong> Lumière directe du soleil</li>
+            <li><strong>Rayonnement diffus :</strong> Lumière diffusée par l'atmosphère et les nuages</li>
+            <li><strong>Rayonnement réfléchi :</strong> Lumière réfléchie par le sol (diminué selon la hauteur de la fenêtre)</li>
+        </ul>
+    </div>
+    <h3>🧮 DÉTAIL DES CALCULS</h3>
+    <div class="weather-grid">
+        <div class="solar-card">
+            <h4>1️⃣ Rayonnement Direct</h4>
+            <p><strong>Résultat :</strong> <span style="color: #e17055;">${directOnWall.toFixed(1)} W/m²</span></p>
+        </div>
+        <div class="solar-card">
+            <h4>2️⃣ Rayonnement Diffus</h4>
+            <p><strong>Résultat :</strong> <span style="color: #e17055;">${diffuseOnWall.toFixed(1)} W/m²</span></p>
+        </div>
+        <div class="solar-card">
+            <h4>3️⃣ Rayonnement Réfléchi</h4>
+            <p><strong>Facteur de réduction hauteur :</strong> ${reduction.toFixed(2)} (pour ${windowHeight} m)</p>
+            <p><strong>Résultat :</strong> <span style="color: #e17055;">${reflectedOnWall.toFixed(1)} W/m²</span></p>
+        </div>
+    </div>
+    <div class="solar-current" style="margin-top: 20px;">
+        <h3>🎯 RÉSULTAT FINAL</h3>
+        <div class="weather-grid">
+            <div class="solar-card" style="border-left-color: #00b894; background: #d1f2eb;">
+                <h4>📊 SOMME TOTALE</h4>
+                <p><strong>TOTAL :</strong> <span style="font-size: 1.5em; color: #00b894;">${totalOnWall.toFixed(1)} W/m²</span></p>
             </div>
         </div>
-        <div class="solar-current" style="margin-top: 20px;">
-            <h3>🎯 RÉSULTAT FINAL</h3>
-            <div class="weather-grid">
-                <div class="solar-card" style="border-left-color: #00b894; background: #d1f2eb;">
-                    <h4>📊 SOMME TOTALE</h4>
-                    <p><strong>TOTAL :</strong> <span style="font-size: 1.5em; color: #00b894;">${totalOnWall.toFixed(1)} W/m²</span></p>
-                </div>
-            </div>
-        </div>
-    `;
+    </div>
+`;
 
-    // ------------- GRAPHIQUE CHART.JS -------------
-    if (weatherData.hourly && weatherData.hourly.time) {
-        const labels = [];
-        const data = [];
-        const nowDate = new Date();
-        for (let i = 0; i < 10; i++) {
-            const hourDate = new Date(nowDate.getTime() + i * 3600 * 1000);
-            const hourStr = hourDate.toISOString().slice(0, 13);
-            let idx = weatherData.hourly.time.findIndex(t => t.startsWith(hourStr));
-            if (idx === -1) idx = i;
-            const GHIh = weatherData.hourly.shortwave_radiation ? weatherData.hourly.shortwave_radiation[idx] : GHI;
-            const DNIh = weatherData.hourly.direct_radiation ? weatherData.hourly.direct_radiation[idx] : DNI;
-            const DHIh = weatherData.hourly.diffuse_radiation ? weatherData.hourly.diffuse_radiation[idx] : DHI;
-            const solarPh = calculateSolarPosition(lat, lng, hourDate);
-            const aoiH = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPh.zenith, solarPh.azimuth);
-            let directH = 0;
-            if (aoiH < 90) directH = DNIh * Math.max(0, cosd(aoiH));
-            const diffuseH = DHIh * (1 + cosd(wallTilt)) / 2;
-            const reflectedH = GHIh * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
-            const totalH = directH + diffuseH + reflectedH;
-            labels.push(hourDate.getHours().toString().padStart(2, '0') + 'h');
-            data.push(Math.round(totalH));
+
+// ------------- GRAPHIQUE CHART.JS CORRIGÉ -------------
+if (weatherData.hourly && weatherData.hourly.time) {
+    const labels = [];
+    const data = [];
+    
+    // Utiliser l'heure de la première donnée météo comme référence
+    const firstWeatherTime = new Date(weatherData.hourly.time[0]);
+    const currentHourIndex = new Date().getHours();
+    
+    // Trouver l'index de l'heure actuelle dans les données météo
+    let startIndex = 0;
+    for (let i = 0; i < weatherData.hourly.time.length; i++) {
+        const weatherTime = new Date(weatherData.hourly.time[i]);
+        const currentTime = new Date();
+        
+        // Comparer les heures en tenant compte du fuseau horaire
+        if (weatherTime.getTime() >= currentTime.getTime()) {
+            startIndex = i;
+            break;
         }
-        const ctx = document.getElementById('solarIrradianceChart').getContext('2d');
-        if (solarChartInstance) {
-            solarChartInstance.destroy();
-        }
-        solarChartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: "Rayonnement solaire sur la fenêtre (W/m²)",
-                    data: data,
-                    fill: true,
-                    backgroundColor: "rgba(255, 206, 86, 0.2)",
-                    borderColor: "#fdcb6e",
-                    borderWidth: 3,
-                    pointBackgroundColor: "#e17055",
-                    pointRadius: 5,
-                    tension: 0.35
-                }]
+    }
+    
+    // Générer les 10 prochaines heures à partir de l'index trouvé
+    for (let i = 0; i < 10; i++) {
+        const dataIndex = startIndex + i;
+        
+        // Vérifier que l'index est valide
+        if (dataIndex >= weatherData.hourly.time.length) break;
+        
+        const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
+        const hourStr = weatherTime.toLocaleTimeString('fr-FR', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: weatherData.timezone || 'UTC'
+        });
+        
+        // Récupérer les données météo pour cette heure
+        const GHIh = weatherData.hourly.shortwave_radiation ? 
+            weatherData.hourly.shortwave_radiation[dataIndex] : GHI;
+        const DNIh = weatherData.hourly.direct_radiation ? 
+            weatherData.hourly.direct_radiation[dataIndex] : DNI;
+        const DHIh = weatherData.hourly.diffuse_radiation ? 
+            weatherData.hourly.diffuse_radiation[dataIndex] : DHI;
+        
+        // Calculer la position solaire pour cette heure LOCALE
+        const solarPh = calculateSolarPosition(lat, lng, weatherTime);
+        const aoiH = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPh.zenith, solarPh.azimuth);
+        
+        // Calculs de rayonnement
+        let directH = 0;
+        if (aoiH < 90) directH = DNIh * Math.max(0, cosd(aoiH));
+        const diffuseH = DHIh * (1 + cosd(wallTilt)) / 2;
+        const reflectedH = GHIh * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
+        const totalH = directH + diffuseH + reflectedH;
+        
+        labels.push(hourStr);
+        data.push(Math.round(totalH));
+    }
+    
+    // Créer le graphique
+    const ctx = document.getElementById('solarIrradianceChart').getContext('2d');
+    if (solarChartInstance) {
+        solarChartInstance.destroy();
+    }
+    solarChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Rayonnement solaire sur la fenêtre (W/m²)",
+                data: data,
+                fill: true,
+                backgroundColor: "rgba(255, 206, 86, 0.2)",
+                borderColor: "#fdcb6e",
+                borderWidth: 3,
+                pointBackgroundColor: "#e17055",
+                pointRadius: 5,
+                tension: 0.35
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: true },
+                title: {
+                    display: true,
+                    text: `Évolution du rayonnement solaire - ${weatherData.timezone || 'UTC'}`
+                }
             },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { display: true },
-                    title: {
-                        display: true,
-                        text: "Évolution du rayonnement solaire sur les 10 prochaines heures"
-                    }
+            scales: {
+                y: {
+                    title: { display: true, text: "W/m²" },
+                    beginAtZero: true
                 },
-                scales: {
-                    y: {
-                        title: { display: true, text: "W/m²" },
-                        beginAtZero: true
-                    },
-                    x: {
-                        title: { display: true, text: "Heure" }
-                    }
+                x: {
+                    title: { display: true, text: "Heure locale" }
                 }
             }
-        });
-    }
+        }
+    });
 }
+
 
 /* ========================================
    INITIALISATION AU CHARGEMENT DE LA PAGE
