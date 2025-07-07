@@ -322,32 +322,41 @@ function displayHourlyForecast() {
     const forecastDiv = document.getElementById('hourlyForecast');
     if (!forecastDiv) return;
     
-    // 🚀 NOUVELLE APPROCHE : Calculer l'heure actuelle dans le fuseau horaire local
+    // 🚀 NOUVELLE LOGIQUE CORRIGÉE
     let startIndex = 0;
-    const currentHourLocal = getCurrentHourInTimezone(weatherData.timezone || 'UTC');
+    const now = new Date();
     
-    // Trouver l'index le plus proche de l'heure actuelle
+    // Obtenir l'heure actuelle dans le fuseau horaire local de la position
+    const currentTimeInTZ = new Date(now.toLocaleString('en-US', {
+        timeZone: weatherData.timezone || 'UTC'
+    }));
+    
+    // Trouver l'index de la première heure >= heure actuelle
     for (let i = 0; i < hourly.time.length; i++) {
         const weatherTime = new Date(hourly.time[i]);
-        const weatherHour = new Date(weatherTime.toLocaleString('en-US', {
-            timeZone: weatherData.timezone || 'UTC'
-        })).getHours();
         
-        if (weatherHour >= currentHourLocal) {
+        // Convertir l'heure météo dans le même fuseau horaire
+        const weatherTimeInTZ = new Date(weatherTime.toLocaleString('en-US', {
+            timeZone: weatherData.timezone || 'UTC'
+        }));
+        
+        // Comparer les timestamps complets (pas seulement les heures)
+        if (weatherTimeInTZ.getTime() >= currentTimeInTZ.getTime()) {
             startIndex = i;
             break;
         }
     }
     
-    // Si aucun index trouvé, utiliser l'index 0 (première heure disponible)
-    if (startIndex === 0 && hourly.time.length > 0) {
+    // Si aucune heure future trouvée, prendre la première disponible
+    if (startIndex === 0) {
         const firstWeatherTime = new Date(hourly.time[0]);
-        const firstWeatherHour = new Date(firstWeatherTime.toLocaleString('en-US', {
+        const firstWeatherTimeInTZ = new Date(firstWeatherTime.toLocaleString('en-US', {
             timeZone: weatherData.timezone || 'UTC'
-        })).getHours();
+        }));
         
-        if (firstWeatherHour > currentHourLocal) {
-            startIndex = 0;
+        if (firstWeatherTimeInTZ.getTime() < currentTimeInTZ.getTime()) {
+            // Toutes les heures sont dans le passé, prendre les dernières disponibles
+            startIndex = Math.max(0, hourly.time.length - 10);
         }
     }
     
@@ -355,7 +364,9 @@ function displayHourlyForecast() {
         <div class="hourly-forecast">
             <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${weatherData.timezone || 'UTC'})</h3>
             <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
-                🕐 Heure locale actuelle : ${currentHourLocal}h dans le fuseau ${weatherData.timezone || 'UTC'}
+                🕐 Heure locale actuelle : ${currentTimeInTZ.getHours()}h${currentTimeInTZ.getMinutes().toString().padStart(2, '0')} dans le fuseau ${weatherData.timezone || 'UTC'}
+                <br>📅 Date : ${currentTimeInTZ.toLocaleDateString('fr-FR')}
+                <br>🔍 Index de départ : ${startIndex} (heure: ${new Date(hourly.time[startIndex]).toLocaleTimeString('fr-FR', {timeZone: weatherData.timezone || 'UTC'})})
             </div>
             <div class="hourly-grid">
     `;
@@ -623,27 +634,28 @@ function calculateSolarRadiation() {
     `;
 
     // 🚀 GRAPHIQUE CHART.JS AVEC NOUVELLE APPROCHE
-    if (weatherData.hourly && weatherData.hourly.time) {
-        const canvasElement = document.getElementById('solarIrradianceChart');
-        if (canvasElement) {
-            const labels = [];
-            const data = [];
-            
-            // Utiliser la même logique que pour l'affichage
-            const currentHourLocal = getCurrentHourInTimezone(weatherData.timezone || 'UTC');
-            
-            let startIndex = 0;
-            for (let i = 0; i < weatherData.hourly.time.length; i++) {
-                const weatherTime = new Date(weatherData.hourly.time[i]);
-                const weatherHour = new Date(weatherTime.toLocaleString('en-US', {
-                    timeZone: weatherData.timezone || 'UTC'
-                })).getHours();
-                
-                if (weatherHour >= currentHourLocal) {
-                    startIndex = i;
-                    break;
-                }
-            }
+if (weatherData.hourly && weatherData.hourly.time) {
+    const labels = [];
+    const data = [];
+    
+    // 🚀 MÊME LOGIQUE CORRIGÉE
+    const now = new Date();
+    const currentTimeInTZ = new Date(now.toLocaleString('en-US', {
+        timeZone: weatherData.timezone || 'UTC'
+    }));
+    
+    let startIndex = 0;
+    for (let i = 0; i < weatherData.hourly.time.length; i++) {
+        const weatherTime = new Date(weatherData.hourly.time[i]);
+        const weatherTimeInTZ = new Date(weatherTime.toLocaleString('en-US', {
+            timeZone: weatherData.timezone || 'UTC'
+        }));
+        
+        if (weatherTimeInTZ.getTime() >= currentTimeInTZ.getTime()) {
+            startIndex = i;
+            break;
+        }
+    }
             
             for (let i = 0; i < 10; i++) {
                 const dataIndex = startIndex + i;
