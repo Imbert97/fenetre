@@ -281,37 +281,6 @@ async function getWeatherData() {
 }
 
 /* ========================================
-   UTILITAIRE FUSEAU HORAIRE
-======================================== */
-
-function getCurrentHourInTimezone(timezone) {
-    try {
-        const now = new Date();
-        const formatter = new Intl.DateTimeFormat('en-US', {
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-        });
-        
-        const parts = formatter.formatToParts(now);
-        const year = parts.find(p => p.type === 'year').value;
-        const month = parts.find(p => p.type === 'month').value;
-        const day = parts.find(p => p.type === 'day').value;
-        const hour = parts.find(p => p.type === 'hour').value;
-        const minute = parts.find(p => p.type === 'minute').value;
-        
-        return parseInt(hour);
-    } catch (error) {
-        console.warn('Erreur de fuseau horaire, utilisation UTC:', error);
-        return new Date().getUTCHours();
-    }
-}
-
-/* ========================================
    AFFICHAGE DES PRÉVISIONS HORAIRES
 ======================================== */
 
@@ -322,19 +291,16 @@ function displayHourlyForecast() {
     const forecastDiv = document.getElementById('hourlyForecast');
     if (!forecastDiv) return;
     
-    // 🚀 NOUVELLE APPROCHE : Calcul direct basé sur l'heure UTC
     let startIndex = 0;
     const now = new Date();
     const currentUTCHour = now.getUTCHours();
     const currentUTCMinutes = now.getUTCMinutes();
     
-    // Trouver l'heure actuelle dans les données météo (qui sont en UTC)
     for (let i = 0; i < hourly.time.length; i++) {
         const weatherTime = new Date(hourly.time[i]);
         const weatherUTCHour = weatherTime.getUTCHours();
         const weatherUTCMinutes = weatherTime.getUTCMinutes();
         
-        // Comparer en UTC pour éviter les problèmes de fuseau horaire
         if (weatherUTCHour > currentUTCHour || 
             (weatherUTCHour === currentUTCHour && weatherUTCMinutes >= currentUTCMinutes)) {
             startIndex = i;
@@ -342,11 +308,9 @@ function displayHourlyForecast() {
         }
     }
     
-    // Si on n'a pas trouvé d'heure future, commencer à partir de maintenant
     if (startIndex === 0 && hourly.time.length > 0) {
         const firstTime = new Date(hourly.time[0]);
         if (firstTime.getTime() < now.getTime()) {
-            // Toutes les heures sont dans le passé, prendre les plus récentes
             startIndex = Math.max(0, hourly.time.length - 10);
         }
     }
@@ -362,12 +326,10 @@ function displayHourlyForecast() {
             <div class="hourly-grid">
     `;
     
-    // Afficher les 10 prochaines heures
     for (let i = 0; i < 10 && (startIndex + i) < hourly.time.length; i++) {
         const dataIndex = startIndex + i;
         const weatherTime = new Date(hourly.time[dataIndex]);
         
-        // Afficher l'heure dans le fuseau horaire local
         const timeStr = weatherTime.toLocaleTimeString('fr-FR', {
             hour: '2-digit',
             minute: '2-digit',
@@ -530,42 +492,33 @@ function calculateSolarRadiation() {
         surfaceAzimuth = orientationToAzimuth(orientationSelect.value);
     }
 
-    // Données météo actuelles
     const current = weatherData.current;
     const GHI = current.shortwave_radiation || 800;
     const DNI = current.direct_radiation || 900;
     const DHI = current.diffuse_radiation || 100;
 
-    // Calcul de la position solaire actuelle
     const now = new Date();
     const solarPos = calculateSolarPosition(lat, lng, now);
 
-    // Calcul de l'angle d'incidence
     const aoi = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPos.zenith, solarPos.azimuth);
 
-    // Rayonnement direct
     let directOnWall = 0;
     if (aoi < 90) {
         directOnWall = DNI * Math.max(0, cosd(aoi));
     }
 
-    // Rayonnement diffus
     const diffuseOnWall = DHI * (1 + cosd(wallTilt)) / 2;
 
-    // Facteur de réduction selon la hauteur
     function reflectedReductionFactor(height) {
         if (height <= 2) return 1;
         return Math.exp(-0.2 * (height - 2));
     }
     const reduction = reflectedReductionFactor(windowHeight);
 
-    // Rayonnement réfléchi avec réduction selon la hauteur
     const reflectedOnWall = GHI * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
 
-    // Total
     const totalOnWall = directOnWall + diffuseOnWall + reflectedOnWall;
 
-    // Affichage des résultats
     const resultsDiv = document.getElementById('solarResults');
     if (!resultsDiv) {
         console.error('Element solarResults not found');
@@ -625,14 +578,12 @@ function calculateSolarRadiation() {
         </div>
     `;
 
-    // ------------- GRAPHIQUE CHART.JS CORRIGÉ -------------
     if (weatherData.hourly && weatherData.hourly.time) {
         const canvasElement = document.getElementById('solarIrradianceChart');
         if (canvasElement) {
             const labels = [];
             const data = [];
             
-            // 🚀 MÊME LOGIQUE SIMPLIFIÉE
             const now = new Date();
             const currentUTCHour = now.getUTCHours();
             const currentUTCMinutes = now.getUTCMinutes();
@@ -723,8 +674,8 @@ function calculateSolarRadiation() {
                 }
             });
         }
-    } // 👈 ACCOLADE FERMANTE AJOUTÉE pour le bloc if
-} // 👈 ACCOLADE FERMANTE AJOUTÉE pour la fonction calculateSolarRadiation
+    }
+}
 
 /* ========================================
    INITIALISATION AU CHARGEMENT DE LA PAGE
@@ -733,11 +684,9 @@ function calculateSolarRadiation() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Initialisation de l\'application...');
     
-    // Initialiser la carte
     initMap();
     updateLocationDisplay();
     
-    // Event listeners
     const getCurrentLocationBtn = document.getElementById('getCurrentLocation');
     const getWeatherBtn = document.getElementById('getWeather');
     const calculateSolarBtn = document.getElementById('calculateSolar');
@@ -799,7 +748,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Charger les données météo par défaut
     getWeatherData();
     
     console.log('✅ Application initialisée avec succès !');
