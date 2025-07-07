@@ -724,7 +724,6 @@ if (weatherData.hourly && weatherData.hourly.time) {
             }
         });
     }
-}
 
 
 /* ========================================
