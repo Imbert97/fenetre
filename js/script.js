@@ -293,19 +293,22 @@ function displayHourlyForecast() {
     
     let startIndex = 0;
     const now = new Date();
-    const currentUTCHour = now.getUTCHours();
-    const currentUTCMinutes = now.getUTCMinutes();
-    
+    // Heures et minutes locales
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+   
+    // Recherche du premier créneau >= heure locale
     for (let i = 0; i < hourly.time.length; i++) {
-        const weatherTime = new Date(hourly.time[i]);
-        const weatherUTCHour = weatherTime.getUTCHours();
-        const weatherUTCMinutes = weatherTime.getUTCMinutes();
-        
-        if (weatherUTCHour > currentUTCHour || 
-            (weatherUTCHour === currentUTCHour && weatherUTCMinutes >= currentUTCMinutes)) {
-            startIndex = i;
-            break;
-        }
+      const weatherTime = new Date(hourly.time[i]);
+      // On prend l'heure locale du créneau
+      const weatherHour = weatherTime.getHours();
+      const weatherMinute = weatherTime.getMinutes();
+   
+      if (weatherHour > currentHour ||
+          (weatherHour === currentHour && weatherMinute >= currentMinute)) {
+        startIndex = i;
+        break;
+      }
     }
     
     if (startIndex === 0 && hourly.time.length > 0) {
