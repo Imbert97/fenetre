@@ -307,20 +307,50 @@ function displayHourlyForecast() {
     const targetTimezone = weatherData.timezone || 'UTC';
     const now = new Date();
     
-    // 🔧 NOUVELLE MÉTHODE : Comparaison directe avec les timestamps ISO
+    // 🔧 CORRECTION : Chercher la prochaine heure PLEINE
     let startIndex = 0;
-    const currentTime = now.getTime();
+    const currentHour = new Intl.DateTimeFormat('en-US', {
+        timeZone: targetTimezone,
+        hour: 'numeric',
+        hourCycle: 'h23'
+    }).format(now);
     
-    // Trouver le premier créneau horaire qui vient après maintenant
+    const currentMinute = new Intl.DateTimeFormat('en-US', {
+        timeZone: targetTimezone,
+        minute: 'numeric'
+    }).format(now);
+    
+    // Si on est à XX:01 ou plus, prendre l'heure suivante
+    const targetHour = parseInt(currentMinute) > 0 ? (parseInt(currentHour) + 1) % 24 : parseInt(currentHour);
+    
+    // Trouver le premier créneau correspondant à l'heure cible ou suivante
     for (let i = 0; i < hourly.time.length; i++) {
         const weatherTime = new Date(hourly.time[i]);
-        if (weatherTime.getTime() > currentTime) {
+        const weatherHourInTz = new Intl.DateTimeFormat('en-US', {
+            timeZone: targetTimezone,
+            hour: 'numeric',
+            hourCycle: 'h23'
+        }).format(weatherTime);
+        
+        if (parseInt(weatherHourInTz) >= targetHour) {
             startIndex = i;
             break;
         }
     }
     
-    // Si on n'a pas trouvé de créneau futur, prendre les 10 derniers
+    // Si on n'a pas trouvé de créneau futur aujourd'hui, chercher demain
+    if (startIndex === 0) {
+        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        for (let i = 0; i < hourly.time.length; i++) {
+            const weatherTime = new Date(hourly.time[i]);
+            if (weatherTime.getDate() === tomorrow.getDate()) {
+                startIndex = i;
+                break;
+            }
+        }
+    }
+    
+    // Fallback final
     if (startIndex === 0) {
         startIndex = Math.max(0, hourly.time.length - 10);
     }
@@ -338,6 +368,7 @@ function displayHourlyForecast() {
             <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
                 🕐 Heure locale actuelle (${targetTimezone}) : ${nowInTargetTz}
                 <br>📍 Fuseau horaire : ${targetTimezone}
+                <br>🎯 Heure cible : ${targetHour}h00
                 <br>🔍 Démarrage à l'index : ${startIndex}
                 <br>📊 Total d'heures disponibles : ${hourly.time.length}
             </div>
@@ -394,6 +425,7 @@ function displayHourlyForecast() {
     
     forecastDiv.innerHTML = forecastHTML;
 }
+
 
 
 /* ========================================
