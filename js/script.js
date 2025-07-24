@@ -224,9 +224,10 @@ function displayAddressResults(results) {
     }
     let html = '';
     results.forEach((result, index) => {
+        const safeName = result.display_name.replace(/'/g, '&apos;').replace(/"/g, '&quot;');
         html += `
             <div class="weather-card" style="cursor: pointer; margin: 10px 0;" 
-                 onclick="selectAddressResult(${result.lat}, ${result.lon}, '${result.display_name.replace(/'/g, "\\'")}')">
+                 onclick="selectAddressResult(${result.lat}, ${result.lon}, '${safeName}')">
                 <strong>📍 ${result.display_name}</strong>
                 <p style="font-size: 0.9em; color: #636e72; margin: 5px 0;">
                     Coordonnées: ${parseFloat(result.lat).toFixed(4)}, ${parseFloat(result.lon).toFixed(4)}
@@ -293,22 +294,19 @@ function displayHourlyForecast() {
     
     let startIndex = 0;
     const now = new Date();
-    // Heures et minutes locales
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
-   
-    // Recherche du premier créneau >= heure locale
+    
     for (let i = 0; i < hourly.time.length; i++) {
-      const weatherTime = new Date(hourly.time[i]);
-      // On prend l'heure locale du créneau
-      const weatherHour = weatherTime.getHours();
-      const weatherMinute = weatherTime.getMinutes();
-   
-      if (weatherHour > currentHour ||
-          (weatherHour === currentHour && weatherMinute >= currentMinute)) {
-        startIndex = i;
-        break;
-      }
+        const weatherTime = new Date(hourly.time[i]);
+        const weatherHour = weatherTime.getHours();
+        const weatherMinute = weatherTime.getMinutes();
+        
+        if (weatherHour > currentHour || 
+            (weatherHour === currentHour && weatherMinute >= currentMinute)) {
+            startIndex = i;
+            break;
+        }
     }
     
     if (startIndex === 0 && hourly.time.length > 0) {
@@ -322,7 +320,7 @@ function displayHourlyForecast() {
         <div class="hourly-forecast">
             <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${weatherData.timezone || 'UTC'})</h3>
             <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
-                `🕐 Heure locale actuelle : ${currentHour}h${currentMinute.toString().padStart(2,'0')}`
+                🕐 Heure locale actuelle : ${currentHour}h${currentMinute.toString().padStart(2, '0')}
                 <br>📍 Fuseau horaire local : ${weatherData.timezone || 'UTC'}
                 <br>🔍 Démarrage à l'index : ${startIndex}
             </div>
@@ -588,17 +586,17 @@ function calculateSolarRadiation() {
             const data = [];
             
             const now = new Date();
-            const currentUTCHour = now.getUTCHours();
-            const currentUTCMinutes = now.getUTCMinutes();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
             
             let startIndex = 0;
             for (let i = 0; i < weatherData.hourly.time.length; i++) {
                 const weatherTime = new Date(weatherData.hourly.time[i]);
-                const weatherUTCHour = weatherTime.getUTCHours();
-                const weatherUTCMinutes = weatherTime.getUTCMinutes();
+                const weatherHour = weatherTime.getHours();
+                const weatherMinute = weatherTime.getMinutes();
                 
-                if (weatherUTCHour > currentUTCHour || 
-                    (weatherUTCHour === currentUTCHour && weatherUTCMinutes >= currentUTCMinutes)) {
+                if (weatherHour > currentHour || 
+                    (weatherHour === currentHour && weatherMinute >= currentMinute)) {
                     startIndex = i;
                     break;
                 }
@@ -755,3 +753,4 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ Application initialisée avec succès !');
 });
+
