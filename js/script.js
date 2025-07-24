@@ -305,81 +305,41 @@ function displayHourlyForecast() {
     if (!forecastDiv) return;
     
     const targetTimezone = weatherData.timezone || 'UTC';
+    
+    // 🔧 CORRECTION : Utiliser directement les timestamps ISO de l'API
     const now = new Date();
-    
-    // 🔧 NOUVELLE APPROCHE : Calculer l'heure cible précise
-    const currentTimeInTz = new Date(now.toLocaleString('en-US', { timeZone: targetTimezone }));
-    const currentHour = currentTimeInTz.getHours();
-    const currentMinute = currentTimeInTz.getMinutes();
-    
-    // Calculer la prochaine heure pleine
-    let nextHour = currentHour;
-    if (currentMinute > 0) {
-        nextHour = (currentHour + 1) % 24;
-    }
-    
-    // Créer un timestamp pour la prochaine heure pleine
-    const nextHourDate = new Date(currentTimeInTz);
-    nextHourDate.setHours(nextHour, 0, 0, 0);
-    
-    // Si on est passé au jour suivant, ajuster la date
-    if (nextHour < currentHour) {
-        nextHourDate.setDate(nextHourDate.getDate() + 1);
-    }
-    
-    // 🔧 RECHERCHE INTELLIGENTE : Trouver l'index le plus proche
     let startIndex = 0;
-    let minTimeDiff = Infinity;
-    const targetTime = nextHourDate.getTime();
     
+    // Simple : trouver la première heure strictement future
     for (let i = 0; i < hourly.time.length; i++) {
         const weatherTime = new Date(hourly.time[i]);
-        const timeDiff = Math.abs(weatherTime.getTime() - targetTime);
-        
-        if (timeDiff < minTimeDiff && weatherTime.getTime() >= now.getTime()) {
-            minTimeDiff = timeDiff;
+        if (weatherTime.getTime() > now.getTime()) {
             startIndex = i;
+            break;
         }
     }
     
-    // Fallback : si aucun créneau futur trouvé, prendre à partir de maintenant
-    if (startIndex === 0) {
-        for (let i = 0; i < hourly.time.length; i++) {
-            const weatherTime = new Date(hourly.time[i]);
-            if (weatherTime.getTime() > now.getTime()) {
-                startIndex = i;
-                break;
-            }
-        }
-    }
-    
-    // Fallback final
+    // Fallback si aucune heure future
     if (startIndex === 0) {
         startIndex = Math.max(0, hourly.time.length - 10);
     }
     
-    // Affichage de debug détaillé
+    // Affichage de debug pour vérifier
     const nowInTargetTz = new Intl.DateTimeFormat('fr-FR', {
         timeZone: targetTimezone,
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit'
     }).format(now);
-    
-    const targetTimeStr = new Intl.DateTimeFormat('fr-FR', {
-        timeZone: targetTimezone,
-        hour: '2-digit',
-        minute: '2-digit'
-    }).format(nextHourDate);
     
     let forecastHTML = `
         <div class="hourly-forecast">
             <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${targetTimezone})</h3>
             <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
-                🕐 Heure actuelle (${targetTimezone}) : ${nowInTargetTz}
-                <br>🎯 Prochaine heure cible : ${targetTimeStr}
-                <br>🔍 Index de démarrage : ${startIndex}
-                <br>📊 Total heures disponibles : ${hourly.time.length}
-                <br>⏱️ Différence minimale trouvée : ${(minTimeDiff / 1000 / 60).toFixed(0)} minutes
+                🕐 Maintenant à ${targetTimezone} : ${nowInTargetTz}
+                <br>🔍 Démarrage index : ${startIndex}
+                <br>📊 Total heures API : ${hourly.time.length}
             </div>
             <div class="hourly-grid">
     `;
@@ -389,11 +349,17 @@ function displayHourlyForecast() {
         const dataIndex = startIndex + i;
         const weatherTime = new Date(hourly.time[dataIndex]);
         
-        // Affichage de l'heure dans le bon fuseau horaire
+        // Affichage CORRECT du fuseau horaire
         const timeStr = new Intl.DateTimeFormat('fr-FR', {
             timeZone: targetTimezone,
             hour: '2-digit',
             minute: '2-digit'
+        }).format(weatherTime);
+        
+        const dayStr = new Intl.DateTimeFormat('fr-FR', {
+            timeZone: targetTimezone,
+            day: '2-digit',
+            month: '2-digit'
         }).format(weatherTime);
         
         const temp = Math.round(hourly.temperature_2m[dataIndex]);
@@ -409,7 +375,7 @@ function displayHourlyForecast() {
         
         forecastHTML += `
             <div class="hourly-item">
-                <div class="hourly-time">${timeStr}</div>
+                <div class="hourly-time">${timeStr}<br><small>${dayStr}</small></div>
                 <div class="hourly-icon">${icon}</div>
                 <div class="hourly-temp">${temp}°C</div>
                 <div class="hourly-details">
@@ -645,22 +611,21 @@ function calculateSolarRadiation() {
             const labels = [];
             const data = [];
             
-            // 🔧 CORRECTION FINALE : Logique simplifiée et fiable
+            // 🔧 CORRECTION FINALE : Logique simplifiée pour éviter les problèmes de fuseau horaire
             const now = new Date();
             const targetTimezone = weatherData.timezone || 'UTC';
-            const currentTime = now.getTime();
             
-            // Trouver le premier créneau horaire qui vient après maintenant
+            // Simple : trouver la première heure strictement future
             let startIndex = 0;
             for (let i = 0; i < weatherData.hourly.time.length; i++) {
                 const weatherTime = new Date(weatherData.hourly.time[i]);
-                if (weatherTime.getTime() > currentTime) {
+                if (weatherTime.getTime() > now.getTime()) {
                     startIndex = i;
                     break;
                 }
             }
             
-            // Si on n'a pas trouvé de créneau futur, prendre les 10 derniers
+            // Fallback si aucune heure future
             if (startIndex === 0) {
                 startIndex = Math.max(0, weatherData.hourly.time.length - 10);
             }
@@ -672,7 +637,7 @@ function calculateSolarRadiation() {
                 
                 const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
                 
-                // Affichage de l'heure dans le bon fuseau horaire
+                // Affichage CORRECT du fuseau horaire
                 const hourStr = new Intl.DateTimeFormat('fr-FR', {
                     timeZone: targetTimezone,
                     hour: '2-digit',
@@ -742,7 +707,6 @@ function calculateSolarRadiation() {
         }
     }
 }
-
 
 
 /* ========================================
