@@ -307,43 +307,46 @@ function displayHourlyForecast() {
     const targetTimezone = weatherData.timezone || 'UTC';
     const now = new Date();
     
-    // 🔧 CORRECTION : Chercher la prochaine heure PLEINE
+    // 🔧 NOUVELLE APPROCHE : Calculer l'heure cible précise
+    const currentTimeInTz = new Date(now.toLocaleString('en-US', { timeZone: targetTimezone }));
+    const currentHour = currentTimeInTz.getHours();
+    const currentMinute = currentTimeInTz.getMinutes();
+    
+    // Calculer la prochaine heure pleine
+    let nextHour = currentHour;
+    if (currentMinute > 0) {
+        nextHour = (currentHour + 1) % 24;
+    }
+    
+    // Créer un timestamp pour la prochaine heure pleine
+    const nextHourDate = new Date(currentTimeInTz);
+    nextHourDate.setHours(nextHour, 0, 0, 0);
+    
+    // Si on est passé au jour suivant, ajuster la date
+    if (nextHour < currentHour) {
+        nextHourDate.setDate(nextHourDate.getDate() + 1);
+    }
+    
+    // 🔧 RECHERCHE INTELLIGENTE : Trouver l'index le plus proche
     let startIndex = 0;
-    const currentHour = new Intl.DateTimeFormat('en-US', {
-        timeZone: targetTimezone,
-        hour: 'numeric',
-        hourCycle: 'h23'
-    }).format(now);
+    let minTimeDiff = Infinity;
+    const targetTime = nextHourDate.getTime();
     
-    const currentMinute = new Intl.DateTimeFormat('en-US', {
-        timeZone: targetTimezone,
-        minute: 'numeric'
-    }).format(now);
-    
-    // Si on est à XX:01 ou plus, prendre l'heure suivante
-    const targetHour = parseInt(currentMinute) > 0 ? (parseInt(currentHour) + 1) % 24 : parseInt(currentHour);
-    
-    // Trouver le premier créneau correspondant à l'heure cible ou suivante
     for (let i = 0; i < hourly.time.length; i++) {
         const weatherTime = new Date(hourly.time[i]);
-        const weatherHourInTz = new Intl.DateTimeFormat('en-US', {
-            timeZone: targetTimezone,
-            hour: 'numeric',
-            hourCycle: 'h23'
-        }).format(weatherTime);
+        const timeDiff = Math.abs(weatherTime.getTime() - targetTime);
         
-        if (parseInt(weatherHourInTz) >= targetHour) {
+        if (timeDiff < minTimeDiff && weatherTime.getTime() >= now.getTime()) {
+            minTimeDiff = timeDiff;
             startIndex = i;
-            break;
         }
     }
     
-    // Si on n'a pas trouvé de créneau futur aujourd'hui, chercher demain
+    // Fallback : si aucun créneau futur trouvé, prendre à partir de maintenant
     if (startIndex === 0) {
-        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
         for (let i = 0; i < hourly.time.length; i++) {
             const weatherTime = new Date(hourly.time[i]);
-            if (weatherTime.getDate() === tomorrow.getDate()) {
+            if (weatherTime.getTime() > now.getTime()) {
                 startIndex = i;
                 break;
             }
@@ -355,22 +358,28 @@ function displayHourlyForecast() {
         startIndex = Math.max(0, hourly.time.length - 10);
     }
     
-    // Affichage de debug amélioré
+    // Affichage de debug détaillé
     const nowInTargetTz = new Intl.DateTimeFormat('fr-FR', {
         timeZone: targetTimezone,
         hour: '2-digit',
         minute: '2-digit'
     }).format(now);
     
+    const targetTimeStr = new Intl.DateTimeFormat('fr-FR', {
+        timeZone: targetTimezone,
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(nextHourDate);
+    
     let forecastHTML = `
         <div class="hourly-forecast">
             <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${targetTimezone})</h3>
             <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
-                🕐 Heure locale actuelle (${targetTimezone}) : ${nowInTargetTz}
-                <br>📍 Fuseau horaire : ${targetTimezone}
-                <br>🎯 Heure cible : ${targetHour}h00
-                <br>🔍 Démarrage à l'index : ${startIndex}
-                <br>📊 Total d'heures disponibles : ${hourly.time.length}
+                🕐 Heure actuelle (${targetTimezone}) : ${nowInTargetTz}
+                <br>🎯 Prochaine heure cible : ${targetTimeStr}
+                <br>🔍 Index de démarrage : ${startIndex}
+                <br>📊 Total heures disponibles : ${hourly.time.length}
+                <br>⏱️ Différence minimale trouvée : ${(minTimeDiff / 1000 / 60).toFixed(0)} minutes
             </div>
             <div class="hourly-grid">
     `;
