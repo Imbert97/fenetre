@@ -222,22 +222,33 @@ function displayAddressResults(results) {
         resultsDiv.style.display = 'block';
         return;
     }
-    let html = '';
+    
+    // Vider le contenu précédent
+    listDiv.innerHTML = '';
+    
     results.forEach((result, index) => {
-        const safeName = result.display_name.replace(/'/g, '&apos;').replace(/"/g, '&quot;');
-        html += `
-            <div class="weather-card" style="cursor: pointer; margin: 10px 0;" 
-                 onclick="selectAddressResult(${result.lat}, ${result.lon}, '${safeName}')">
-                <strong>📍 ${result.display_name}</strong>
-                <p style="font-size: 0.9em; color: #636e72; margin: 5px 0;">
-                    Coordonnées: ${parseFloat(result.lat).toFixed(4)}, ${parseFloat(result.lon).toFixed(4)}
-                </p>
-            </div>
+        const cardDiv = document.createElement('div');
+        cardDiv.className = 'weather-card';
+        cardDiv.style.cssText = 'cursor: pointer; margin: 10px 0;';
+        
+        cardDiv.innerHTML = `
+            <strong>📍 ${result.display_name}</strong>
+            <p style="font-size: 0.9em; color: #636e72; margin: 5px 0;">
+                Coordonnées: ${parseFloat(result.lat).toFixed(4)}, ${parseFloat(result.lon).toFixed(4)}
+            </p>
         `;
+        
+        // Utiliser addEventListener au lieu de onclick
+        cardDiv.addEventListener('click', function() {
+            selectAddressResult(result.lat, result.lon, result.display_name);
+        });
+        
+        listDiv.appendChild(cardDiv);
     });
-    listDiv.innerHTML = html;
+    
     resultsDiv.style.display = 'block';
 }
+
 
 function selectAddressResult(latitude, longitude, displayName) {
     tempSelectedPosition = {
