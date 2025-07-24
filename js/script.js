@@ -305,13 +305,20 @@ function displayHourlyForecast() {
     
     let startIndex = 0;
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
     
+    // CORRECTION : Obtenir l'heure dans le fuseau horaire de la météo
+    const targetTimezone = weatherData.timezone || 'UTC';
+    const nowInTargetTimezone = new Date(now.toLocaleString('en-US', { timeZone: targetTimezone }));
+    const currentHour = nowInTargetTimezone.getHours();
+    const currentMinute = nowInTargetTimezone.getMinutes();
+    
+    // Trouver le bon index de démarrage
     for (let i = 0; i < hourly.time.length; i++) {
         const weatherTime = new Date(hourly.time[i]);
-        const weatherHour = weatherTime.getHours();
-        const weatherMinute = weatherTime.getMinutes();
+        // Convertir l'heure météo dans le fuseau cible
+        const weatherTimeInTz = new Date(weatherTime.toLocaleString('en-US', { timeZone: targetTimezone }));
+        const weatherHour = weatherTimeInTz.getHours();
+        const weatherMinute = weatherTimeInTz.getMinutes();
         
         if (weatherHour > currentHour || 
             (weatherHour === currentHour && weatherMinute >= currentMinute)) {
@@ -322,22 +329,24 @@ function displayHourlyForecast() {
     
     if (startIndex === 0 && hourly.time.length > 0) {
         const firstTime = new Date(hourly.time[0]);
-        if (firstTime.getTime() < now.getTime()) {
+        const firstTimeInTz = new Date(firstTime.toLocaleString('en-US', { timeZone: targetTimezone }));
+        if (firstTimeInTz.getTime() < nowInTargetTimezone.getTime()) {
             startIndex = Math.max(0, hourly.time.length - 10);
         }
     }
     
     let forecastHTML = `
         <div class="hourly-forecast">
-            <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${weatherData.timezone || 'UTC'})</h3>
+            <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${targetTimezone})</h3>
             <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
-                🕐 Heure locale actuelle : ${currentHour}h${currentMinute.toString().padStart(2, '0')}
-                <br>📍 Fuseau horaire local : ${weatherData.timezone || 'UTC'}
+                🕐 Heure locale actuelle (${targetTimezone}) : ${currentHour}h${currentMinute.toString().padStart(2, '0')}
+                <br>📍 Fuseau horaire : ${targetTimezone}
                 <br>🔍 Démarrage à l'index : ${startIndex}
             </div>
             <div class="hourly-grid">
     `;
     
+    // Le reste du code reste identique...
     for (let i = 0; i < 10 && (startIndex + i) < hourly.time.length; i++) {
         const dataIndex = startIndex + i;
         const weatherTime = new Date(hourly.time[dataIndex]);
@@ -345,7 +354,7 @@ function displayHourlyForecast() {
         const timeStr = weatherTime.toLocaleTimeString('fr-FR', {
             hour: '2-digit',
             minute: '2-digit',
-            timeZone: weatherData.timezone || 'UTC'
+            timeZone: targetTimezone
         });
         
         const temp = Math.round(hourly.temperature_2m[dataIndex]);
@@ -386,6 +395,7 @@ function displayHourlyForecast() {
     
     forecastDiv.innerHTML = forecastHTML;
 }
+
 
 /* ========================================
    FONCTIONS MATHÉMATIQUES SOLAIRES
@@ -596,15 +606,20 @@ function calculateSolarRadiation() {
             const labels = [];
             const data = [];
             
+            // 🔧 CORRECTION : Utiliser le fuseau horaire de la météo
             const now = new Date();
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
+            const targetTimezone = weatherData.timezone || 'UTC';
+            const nowInTargetTimezone = new Date(now.toLocaleString('en-US', { timeZone: targetTimezone }));
+            const currentHour = nowInTargetTimezone.getHours();
+            const currentMinute = nowInTargetTimezone.getMinutes();
             
             let startIndex = 0;
             for (let i = 0; i < weatherData.hourly.time.length; i++) {
                 const weatherTime = new Date(weatherData.hourly.time[i]);
-                const weatherHour = weatherTime.getHours();
-                const weatherMinute = weatherTime.getMinutes();
+                // 🔧 CORRECTION : Convertir l'heure météo dans le fuseau cible
+                const weatherTimeInTz = new Date(weatherTime.toLocaleString('en-US', { timeZone: targetTimezone }));
+                const weatherHour = weatherTimeInTz.getHours();
+                const weatherMinute = weatherTimeInTz.getMinutes();
                 
                 if (weatherHour > currentHour || 
                     (weatherHour === currentHour && weatherMinute >= currentMinute)) {
@@ -622,7 +637,7 @@ function calculateSolarRadiation() {
                 const hourStr = weatherTime.toLocaleTimeString('fr-FR', { 
                     hour: '2-digit', 
                     minute: '2-digit',
-                    timeZone: weatherData.timezone || 'UTC'
+                    timeZone: targetTimezone
                 });
                 
                 const GHIh = weatherData.hourly.shortwave_radiation ? 
@@ -671,7 +686,7 @@ function calculateSolarRadiation() {
                         legend: { display: true },
                         title: {
                             display: true,
-                            text: `Évolution du rayonnement solaire - ${weatherData.timezone || 'UTC'}`
+                            text: `Évolution du rayonnement solaire - ${targetTimezone}`
                         }
                     },
                     scales: {
@@ -688,6 +703,7 @@ function calculateSolarRadiation() {
         }
     }
 }
+
 
 /* ========================================
    INITIALISATION AU CHARGEMENT DE LA PAGE
