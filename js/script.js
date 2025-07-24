@@ -322,7 +322,7 @@ function displayHourlyForecast() {
         <div class="hourly-forecast">
             <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${weatherData.timezone || 'UTC'})</h3>
             <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
-                🕐 Heure UTC actuelle : ${currentUTCHour}h${currentUTCMinutes.toString().padStart(2, '0')}
+                `🕐 Heure locale actuelle : ${currentHour}h${currentMinute.toString().padStart(2,'0')}`
                 <br>📍 Fuseau horaire local : ${weatherData.timezone || 'UTC'}
                 <br>🔍 Démarrage à l'index : ${startIndex}
             </div>
