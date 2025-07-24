@@ -306,68 +306,59 @@ function displayHourlyForecast() {
     const targetTimezone = weatherData.timezone || 'UTC';
     const now = new Date();
     
-    // 🔧 CORRECTION : Chercher dans les 24 prochaines heures seulement
+    // 🔧 SOLUTION DÉFINITIVE : Logique simple et fiable
     let startIndex = 0;
-    let found = false;
     
-    // Calculer la date limite (maintenant + 24 heures)
-    const maxTime = now.getTime() + (24 * 60 * 60 * 1000);
-    
+    // Trouver la première heure strictement future (sans limite artificielle)
     for (let i = 0; i < hourly.time.length; i++) {
         const weatherTime = new Date(hourly.time[i]);
-        
-        // Chercher la première heure future MAIS dans les 24 prochaines heures
-        if (weatherTime.getTime() > now.getTime() && weatherTime.getTime() <= maxTime) {
+        if (weatherTime.getTime() > now.getTime()) {
             startIndex = i;
-            found = true;
             break;
         }
     }
     
-    // Si aucune heure trouvée dans les 24h, prendre la plus proche future
-    if (!found) {
-        for (let i = 0; i < hourly.time.length; i++) {
-            const weatherTime = new Date(hourly.time[i]);
-            if (weatherTime.getTime() > now.getTime()) {
-                startIndex = i;
-                break;
-            }
-        }
-    }
-    
-    // Fallback final
+    // Fallback si aucune heure future
     if (startIndex === 0) {
         startIndex = Math.max(0, hourly.time.length - 10);
     }
     
-    // Affichage de debug avec dates complètes
+    // Debug pour vérifier les dates
     const nowInTargetTz = new Intl.DateTimeFormat('fr-FR', {
         timeZone: targetTimezone,
         hour: '2-digit',
         minute: '2-digit',
         day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
+        month: '2-digit'
     }).format(now);
+    
+    const firstForecastTime = startIndex < hourly.time.length ? 
+        new Intl.DateTimeFormat('fr-FR', {
+            timeZone: targetTimezone,
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit'
+        }).format(new Date(hourly.time[startIndex])) : 'N/A';
     
     let forecastHTML = `
         <div class="hourly-forecast">
             <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${targetTimezone})</h3>
             <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
-                🕐 Maintenant : ${nowInTargetTz}
+                🕐 Maintenant à ${targetTimezone} : ${nowInTargetTz}
+                <br>📅 Première prévision : ${firstForecastTime}
                 <br>🔍 Index démarrage : ${startIndex}
                 <br>📊 Total heures API : ${hourly.time.length}
-                <br>✅ Trouvé dans 24h : ${found ? 'Oui' : 'Non'}
             </div>
             <div class="hourly-grid">
     `;
     
-    // Génération des 10 prochaines heures avec vérification de date
+    // Génération des 10 prochaines heures
     for (let i = 0; i < 10 && (startIndex + i) < hourly.time.length; i++) {
         const dataIndex = startIndex + i;
         const weatherTime = new Date(hourly.time[dataIndex]);
         
-        // Affichage avec date complète pour vérifier
+        // Affichage de l'heure dans le fuseau horaire cible
         const timeStr = new Intl.DateTimeFormat('fr-FR', {
             timeZone: targetTimezone,
             hour: '2-digit',
@@ -628,40 +619,21 @@ function calculateSolarRadiation() {
             const labels = [];
             const data = [];
             
-            // 🔧 CORRECTION FINALE : Éviter les sauts de dates
+            // 🔧 CORRECTION FINALE : Retour à la logique simple
             const now = new Date();
             const targetTimezone = weatherData.timezone || 'UTC';
             
-            // Chercher dans les 24 prochaines heures seulement
+            // Simple : trouver la première heure strictement future
             let startIndex = 0;
-            let found = false;
-            
-            // Calculer la date limite (maintenant + 24 heures)
-            const maxTime = now.getTime() + (24 * 60 * 60 * 1000);
-            
             for (let i = 0; i < weatherData.hourly.time.length; i++) {
                 const weatherTime = new Date(weatherData.hourly.time[i]);
-                
-                // Chercher dans les 24 prochaines heures seulement
-                if (weatherTime.getTime() > now.getTime() && weatherTime.getTime() <= maxTime) {
+                if (weatherTime.getTime() > now.getTime()) {
                     startIndex = i;
-                    found = true;
                     break;
                 }
             }
             
-            // Si aucune heure trouvée dans les 24h, prendre la plus proche future
-            if (!found) {
-                for (let i = 0; i < weatherData.hourly.time.length; i++) {
-                    const weatherTime = new Date(weatherData.hourly.time[i]);
-                    if (weatherTime.getTime() > now.getTime()) {
-                        startIndex = i;
-                        break;
-                    }
-                }
-            }
-            
-            // Fallback final
+            // Fallback si aucune heure future
             if (startIndex === 0) {
                 startIndex = Math.max(0, weatherData.hourly.time.length - 10);
             }
@@ -673,7 +645,7 @@ function calculateSolarRadiation() {
                 
                 const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
                 
-                // Affichage de l'heure dans le bon fuseau horaire
+                // Affichage de l'heure dans le fuseau horaire cible
                 const hourStr = new Intl.DateTimeFormat('fr-FR', {
                     timeZone: targetTimezone,
                     hour: '2-digit',
@@ -743,7 +715,6 @@ function calculateSolarRadiation() {
         }
     }
 }
-
 
 /* ========================================
    INITIALISATION AU CHARGEMENT DE LA PAGE
