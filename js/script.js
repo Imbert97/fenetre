@@ -322,7 +322,7 @@ function generatePythonVector() {
             vector.push(Math.round(interpolatedTemp * 10) / 10);
         }
     }
-
+}
 
 
 /* ================================================
@@ -971,4 +971,4 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ Application initialisée avec succès !');
 });
-}
+
