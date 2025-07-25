@@ -429,7 +429,6 @@ function displayHourlyForecast() {
             <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${targetTimezone}) - Open-Meteo</h3>
             <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
                 🕐 Maintenant à ${targetTimezone} : ${nowInTargetTz}
-                <br>📅 Première prévision : ${firstForecastTime}
                 <br>🔍 Index démarrage : ${startIndex}
                 <br>📊 Total heures API : ${hourly.time.length}
                 <br>📍 Position : ${lat.toFixed(4)}, ${lng.toFixed(4)}
