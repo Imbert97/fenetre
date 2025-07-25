@@ -324,25 +324,18 @@ function displayHourlyForecast() {
     const targetTimezone = weatherData.timezone || 'UTC';
     const now = new Date();
     
-    // 🔧 SOLUTION SIMPLE ET FIABLE : Afficher à partir de l'heure actuelle ou suivante
+    // 🔧 CORRECTION : Même logique pour trouver l'index de départ
     let startIndex = 0;
     const currentTimeMs = now.getTime();
-    
-    // Parcourir toutes les heures pour trouver la première >= maintenant
     for (let i = 0; i < hourly.time.length; i++) {
         const weatherTime = new Date(hourly.time[i]);
         const weatherTimeMs = weatherTime.getTime();
-        
-        // Si cette heure est dans l'heure actuelle ou future, on commence ici
-        if (weatherTimeMs >= (currentTimeMs - 30 * 60 * 1000)) { // 30 minutes de marge
+        if (weatherTimeMs >= (currentTimeMs - 30 * 60 * 1000)) {
             startIndex = i;
             break;
         }
     }
     
-    console.log(`🕐 Index de départ: ${startIndex}, Total heures: ${hourly.time.length}`);
-    
-    // Debug : afficher les infos de time
     const nowInTargetTz = new Intl.DateTimeFormat('fr-FR', {
         timeZone: targetTimezone,
         hour: '2-digit',
@@ -373,22 +366,26 @@ function displayHourlyForecast() {
             <div class="hourly-grid">
     `;
     
-    // Afficher exactement 10 heures à partir de startIndex
+    // 🔧 CORRECTION PRINCIPALE : Affichage correct des heures
     for (let i = 0; i < 10 && (startIndex + i) < hourly.time.length; i++) {
         const dataIndex = startIndex + i;
-        const weatherTime = new Date(hourly.time[dataIndex]);
         
-        const timeStr = new Intl.DateTimeFormat('fr-FR', {
-            timeZone: targetTimezone,
-            hour: '2-digit',
-            minute: '2-digit'
-        }).format(weatherTime);
+        // ⚡ SOLUTION : Parser directement la chaîne ISO retournée par l'API
+        const timeString = hourly.time[dataIndex]; // Ex: "2025-07-25T09:00"
         
-        const dateStr = new Intl.DateTimeFormat('fr-FR', {
-            timeZone: targetTimezone,
-            day: '2-digit',
-            month: '2-digit'
-        }).format(weatherTime);
+        // Extraire l'heure et la date directement de la chaîne ISO
+        const [datePart, timePart] = timeString.split('T');
+        const [year, month, day] = datePart.split('-');
+        const [hour, minute] = timePart.split(':');
+        
+        // Créer une date dans le fuseau cible sans conversion
+        const localDate = new Date();
+        localDate.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
+        localDate.setHours(parseInt(hour), parseInt(minute), 0, 0);
+        
+        // Afficher l'heure directement depuis la chaîne ISO
+        const timeStr = `${hour}:${minute}`;
+        const dateStr = `${day}/${month}`;
         
         const temp = Math.round(hourly.temperature_2m[dataIndex]);
         const tempFeel = Math.round(hourly.apparent_temperature[dataIndex]);
