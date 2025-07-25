@@ -905,5 +905,85 @@ function calculateSolarRadiation() {
     }
 }
 
+/* ========================================
+   INITIALISATION AU CHARGEMENT DE LA PAGE
+======================================== */
+
+document.addEventListener('DOMContentLoaded', function() {
+    // --- Affiche la version en haut à droite, si présent dans le HTML ---
+    const versionDiv = document.getElementById('version-number');
+    if (versionDiv) versionDiv.textContent = CODE_VERSION;
+
+    console.log('🚀 Initialisation de l\'application avec Open-Meteo...');
+    
+    initMap();
+    updateLocationDisplay();
+    
+    const getCurrentLocationBtn = document.getElementById('getCurrentLocation');
+    const getWeatherBtn = document.getElementById('getWeather');
+    const calculateSolarBtn = document.getElementById('calculateSolar');
+    const wallOrientationSelect = document.getElementById('wallOrientation');
+    const validatePositionBtn = document.getElementById('validatePosition');
+    const searchAddressBtn = document.getElementById('searchAddress');
+    const manualLatInput = document.getElementById('manualLat');
+    const manualLngInput = document.getElementById('manualLng');
+    const addressSearchInput = document.getElementById('addressSearch');
+    
+    if (getCurrentLocationBtn) {
+        getCurrentLocationBtn.addEventListener('click', getCurrentLocation);
+    }
+    if (getWeatherBtn) {
+        getWeatherBtn.addEventListener('click', getWeatherData);
+    }
+    if (calculateSolarBtn) {
+        calculateSolarBtn.addEventListener('click', calculateSolarRadiation);
+    }
+    if (wallOrientationSelect) {
+        wallOrientationSelect.addEventListener('change', toggleCustomAzimuth);
+    }
+    if (validatePositionBtn) {
+        validatePositionBtn.addEventListener('click', validatePosition);
+    }
+    if (searchAddressBtn) {
+        searchAddressBtn.addEventListener('click', searchAddress);
+    }
+    
+    if (manualLatInput) {
+        manualLatInput.addEventListener('input', function() {
+            const latValue = parseFloat(this.value);
+            const lngValue = parseFloat(manualLngInput.value);
+            if (!isNaN(latValue) && !isNaN(lngValue)) {
+                tempSelectedPosition = { lat: latValue, lng: lngValue, name: "Position manuelle" };
+                showPositionValidation();
+                updateMapPreview(latValue, lngValue, "Position manuelle");
+            }
+        });
+    }
+    
+    if (manualLngInput) {
+        manualLngInput.addEventListener('input', function() {
+            const latValue = parseFloat(manualLatInput.value);
+            const lngValue = parseFloat(this.value);
+            if (!isNaN(latValue) && !isNaN(lngValue)) {
+                tempSelectedPosition = { lat: latValue, lng: lngValue, name: "Position manuelle" };
+                showPositionValidation();
+                updateMapPreview(latValue, lngValue, "Position manuelle");
+            }
+        });
+    }
+    
+    if (addressSearchInput) {
+        addressSearchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchAddress();
+            }
+        });
+    }
+    
+    getWeatherData();
+    
+    console.log('✅ Application initialisée avec succès !');
+});
+
 
 
