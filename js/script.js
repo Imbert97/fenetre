@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.0.1";
+const CODE_VERSION = "v1.1.1";
 
 /* ========================================
    VARIABLES GLOBALES
@@ -803,10 +803,10 @@ function calculateSolarRadiation() {
             </div>
             <div style="margin: 15px 0; text-align: center;">
                 <button onclick="generateSolarFluxVector()" style="background: #fd7900; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-right: 10px;">
-                   ☀️ Copier Vecteur Python (Flux Solaires/seconde - Interpolation Linéaire)
+                   ☀️ Copier Vecteur Python (Flux Solaires/minute - Interpolation Linéaire)
                 </button>
                 <small style="display: block; margin-top: 5px; color: #636e72;">
-                    Génère un vecteur avec transitions graduelles entre les flux solaires horaires (32 400 valeurs en W/m² avec interpolation linéaire)
+                    Génère un vecteur avec transitions graduelles entre les flux solaires horaires (540 valeurs en W/m² avec interpolation linéaire)
                 </small>
 
             </div>
