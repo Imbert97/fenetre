@@ -554,7 +554,7 @@ function displayHourlyForecast() {
                    🐍 Copier Vecteur Python (Températures/seconde - Interpolation Linéaire)
                </button>
                <small style="display: block; margin-top: 5px; color: #636e72;">
-                   Génère un vecteur avec transitions graduelles entre les températures horaires (36,000 valeurs avec interpolation linéaire)
+                   Génère un vecteur avec transitions graduelles entre les températures horaires (32 400 valeurs avec interpolation linéaire)
                </small>
             </div>
             <div class="hourly-grid">
@@ -821,7 +821,7 @@ function calculateSolarRadiation() {
                    ☀️ Copier Vecteur Python (Flux Solaires/seconde - Interpolation Linéaire)
                 </button>
                 <small style="display: block; margin-top: 5px; color: #636e72;">
-                    Génère un vecteur avec transitions graduelles entre les flux solaires horaires (36,000 valeurs en W/m² avec interpolation linéaire)
+                    Génère un vecteur avec transitions graduelles entre les flux solaires horaires (32 400 valeurs en W/m² avec interpolation linéaire)
                 </small>
 
             </div>
