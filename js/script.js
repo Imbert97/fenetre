@@ -264,7 +264,7 @@ function selectAddressResult(latitude, longitude, displayName) {
 }
 
 /* ========================================
-   🔧 NOUVELLE FONCTION : GÉNÉRATION VECTEUR PYTHON
+   🔧 FONCTION CORRIGÉE : GÉNÉRATION VECTEUR PYTHON AVEC INTERPOLATION LINÉAIRE
 ======================================== */
 
 function generatePythonVector() {
@@ -273,7 +273,6 @@ function generatePythonVector() {
         return;
     }
 
-    // Trouver l'index de départ (même logique que l'affichage)
     const now = new Date();
     let startIndex = 0;
     const currentTimeMs = now.getTime();
@@ -287,63 +286,228 @@ function generatePythonVector() {
         }
     }
 
-    const temps = weatherData.hourly.temperature_2m.slice(startIndex, startIndex + 10); // 10 heures
-    const vector = [];
+    // Récupérer 11 heures pour avoir des transitions entre 10 heures
+    const maxHours = Math.min(11, weatherData.hourly.temperature_2m.length - startIndex);
+    const temps = weatherData.hourly.temperature_2m.slice(startIndex, startIndex + maxHours);
     
-    // Générer 3600 valeurs (1 par seconde) pour chaque heure
-    temps.forEach(temp => {
+    if (temps.length < 2) {
+        alert('❌ Pas assez de données pour générer des transitions graduelles.');
+        return;
+    }
+
+    const vector = [];
+    const debugInfo = []; // Pour vérifier l'interpolation
+    
+    // 🔧 INTERPOLATION LINÉAIRE CORRIGÉE avec plus de précision
+    for (let h = 0; h < Math.min(10, temps.length - 1); h++) {
+        const currentTemp = temps[h];
+        const nextTemp = temps[h + 1];
+        const tempDiff = nextTemp - currentTemp;
+        
+        // Stocker info de debug
+        debugInfo.push({
+            heure: h,
+            tempActuelle: currentTemp,
+            tempSuivante: nextTemp,
+            difference: tempDiff
+        });
+        
+        // Générer 3600 valeurs interpolées pour cette heure
         for (let i = 0; i < 3600; i++) {
-            vector.push(Math.round(temp));
+            const progress = i / 3600; // 0 à 1 (progression dans l'heure)
+            
+            // 🔧 CORRECTION : Utiliser plus de précision avant l'arrondi
+            const interpolatedTemp = currentTemp + (tempDiff * progress);
+            
+            // Arrondir à 1 décimale pour garder plus de nuances
+            vector.push(Math.round(interpolatedTemp * 10) / 10);
         }
+    }
+
+    // 🔧 DEBUG : Afficher les premiers et derniers échantillons pour vérifier
+    console.log('🔍 Vérification interpolation températures:', {
+        infoTransitions: debugInfo,
+        premieres20Valeurs: vector.slice(0, 20),
+        valeursAutourHeure1: vector.slice(3580, 3620), // Autour de la transition 1ère→2ème heure
+        dernieres20Valeurs: vector.slice(-20)
     });
 
     const pythonVectorString = `[${vector.join(', ')}]`;
     
-    // Copier dans le presse-papier
     navigator.clipboard.writeText(pythonVectorString).then(() => {
-        showSuccessMessage(`✅ Vecteur Python copié ! (${vector.length} valeurs - ${temps.length} heures)`);
-        console.log('📊 Vecteur Python généré:', {
-            heures: temps.length,
-            valeursParHeure: 3600,
-            totalValeurs: vector.length,
-            temperaturesHoraires: temps,
-            premieresValeurs: vector.slice(0, 10),
-            dernieresValeurs: vector.slice(-10)
+        showSuccessMessage(`✅ Vecteur Python avec interpolation linéaire copié ! (${vector.length} valeurs - ${Math.min(10, temps.length - 1)} heures)`);
+        
+        // Afficher un résumé des transitions
+        let transitionSummary = "Transitions détectées:\n";
+        debugInfo.forEach(info => {
+            transitionSummary += `Heure ${info.heure}: ${info.tempActuelle}°C → ${info.tempSuivante}°C (${info.difference > 0 ? '+' : ''}${info.difference.toFixed(1)}°C)\n`;
         });
+        console.log(transitionSummary);
+        
     }).catch(err => {
         console.error('Erreur copie presse-papier:', err);
-        showVectorInTextArea(pythonVectorString);
+        showVectorInTextArea(pythonVectorString, 'températures avec interpolation linéaire');
     });
 }
 
-function showVectorInTextArea(vectorString) {
-    const existingTextArea = document.getElementById('pythonVectorOutput');
-    if (existingTextArea) {
-        existingTextArea.remove();
+
+
+/* ========================================
+   🔧 FONCTION CORRIGÉE : GÉNÉRATION VECTEUR PYTHON FLUX SOLAIRES AVEC INTERPOLATION
+======================================== */
+
+function generateSolarFluxVector() {
+    if (!weatherData || !weatherData.hourly) {
+        alert('❌ Aucune donnée météo disponible. Récupérez d\'abord les prévisions.');
+        return;
     }
 
-    const textArea = document.createElement('textarea');
-    textArea.id = 'pythonVectorOutput';
-    textArea.value = vectorString;
-    textArea.style.cssText = `
-        width: 100%; 
-        height: 100px; 
-        margin: 10px 0; 
-        font-family: monospace; 
-        font-size: 12px;
-        border: 2px solid #00b894;
-        border-radius: 5px;
-        padding: 10px;
-    `;
-    textArea.readOnly = true;
+    // 🔧 RÉCUPÉRATION EXACTE DES MÊMES PARAMÈTRES QUE LE GRAPHIQUE
+    const orientationSelect = document.getElementById('wallOrientation');
+    const customAzimuth = document.getElementById('customAzimuth');
+    const wallTilt = parseFloat(document.getElementById('wallTilt').value) || 90;
+    const albedo = parseFloat(document.getElementById('albedo').value) || 0.2;
+    const windowHeight = parseFloat(document.getElementById('windowHeight').value) || 0;
 
-    const container = document.querySelector('.hourly-forecast') || document.querySelector('.input-group');
-    if (container) {
-        container.appendChild(textArea);
-        textArea.select();
-        showSuccessMessage('📋 Vecteur affiché ci-dessous - Sélectionnez et copiez manuellement');
+    if (!orientationSelect) {
+        alert('❌ Veuillez d\'abord configurer les paramètres solaires.');
+        return;
     }
+
+    let surfaceAzimuth;
+    if (orientationSelect.value === 'custom') {
+        surfaceAzimuth = parseFloat(customAzimuth.value);
+        if (isNaN(surfaceAzimuth)) {
+            alert('❌ Veuillez entrer un azimuth personnalisé valide.');
+            return;
+        }
+    } else {
+        surfaceAzimuth = orientationToAzimuth(orientationSelect.value);
+    }
+
+    // 🔧 MÊME LOGIQUE D'INDEX QUE LE GRAPHIQUE
+    const now = new Date();
+    let startIndex = 0;
+    
+    for (let i = 0; i < weatherData.hourly.time.length; i++) {
+        const weatherTime = new Date(weatherData.hourly.time[i]);
+        if (weatherTime.getTime() >= (now.getTime() - 30 * 60 * 1000)) {
+            startIndex = i;
+            break;
+        }
+    }
+
+    const solarFluxes = [];
+    const debugComparison = []; // Pour comparer avec le graphique
+    
+    // 🔧 CALCULS IDENTIQUES AU GRAPHIQUE
+    const maxHours = Math.min(11, weatherData.hourly.time.length - startIndex);
+    for (let i = 0; i < maxHours; i++) {
+        const dataIndex = startIndex + i;
+        const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
+        
+        // MÊMES calculs que dans calculateSolarRadiation()
+        const GHIh = weatherData.hourly.shortwave_radiation ? 
+            weatherData.hourly.shortwave_radiation[dataIndex] : 800;
+        const DNIh = weatherData.hourly.direct_radiation ? 
+            weatherData.hourly.direct_radiation[dataIndex] : 900;
+        const DHIh = weatherData.hourly.diffuse_radiation ? 
+            weatherData.hourly.diffuse_radiation[dataIndex] : 100;
+        
+        const solarPos = calculateSolarPosition(lat, lng, weatherTime);
+        const aoi = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPos.zenith, solarPos.azimuth);
+        
+        let directOnWall = 0;
+        if (aoi < 90) {
+            directOnWall = DNIh * Math.max(0, cosd(aoi));
+        }
+        
+        const diffuseOnWall = DHIh * (1 + cosd(wallTilt)) / 2;
+        const reduction = windowHeight <= 2 ? 1 : Math.exp(-0.2 * (windowHeight - 2));
+        const reflectedOnWall = GHIh * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
+        
+        const totalFlux = directOnWall + diffuseOnWall + reflectedOnWall;
+        const roundedFlux = Math.round(totalFlux);
+        solarFluxes.push(roundedFlux);
+        
+        // Debug pour comparaison
+        debugComparison.push({
+            heure: i,
+            timestamp: weatherData.hourly.time[dataIndex],
+            GHI: GHIh,
+            DNI: DNIh,
+            DHI: DHIh,
+            direct: directOnWall.toFixed(1),
+            diffuse: diffuseOnWall.toFixed(1),
+            reflected: reflectedOnWall.toFixed(1),
+            total: totalFlux.toFixed(1),
+            totalArrondi: roundedFlux
+        });
+    }
+
+    if (solarFluxes.length < 2) {
+        alert('❌ Pas assez de données pour générer des transitions graduelles.');
+        return;
+    }
+
+    // 🔧 INTERPOLATION LINÉAIRE avec debug
+    const vector = [];
+    const transitionDebug = [];
+    
+    for (let h = 0; h < Math.min(10, solarFluxes.length - 1); h++) {
+        const currentFlux = solarFluxes[h];
+        const nextFlux = solarFluxes[h + 1];
+        const fluxDiff = nextFlux - currentFlux;
+        
+        transitionDebug.push({
+            heure: h,
+            fluxActuel: currentFlux,
+            fluxSuivant: nextFlux,
+            difference: fluxDiff
+        });
+        
+        for (let i = 0; i < 3600; i++) {
+            const progress = i / 3600;
+            const interpolatedFlux = currentFlux + (fluxDiff * progress);
+            vector.push(Math.round(interpolatedFlux * 10) / 10); // 1 décimale de précision
+        }
+    }
+
+    // 🔧 DEBUG COMPLET
+    console.log('☀️ Debug flux solaires - Comparaison graphique vs vecteur:', {
+        parametres: {
+            orientation: surfaceAzimuth + '°',
+            inclinaison: wallTilt + '°',
+            albedo: albedo,
+            hauteur: windowHeight + 'm'
+        },
+        indexDemarrage: startIndex,
+        calculsPourGraphique: debugComparison,
+        transitionsInterpolation: transitionDebug,
+        premieres20Valeurs: vector.slice(0, 20),
+        valeursAutourTransition: vector.slice(3580, 3620),
+        dernieres20Valeurs: vector.slice(-20)
+    });
+
+    const pythonVectorString = `[${vector.join(', ')}]`;
+    
+    navigator.clipboard.writeText(pythonVectorString).then(() => {
+        showSuccessMessage(`✅ Vecteur Python flux solaires avec interpolation synchronisée copié ! (${vector.length} valeurs)`);
+        
+        // Afficher résumé pour vérification
+        let summary = "🔍 Résumé pour vérification:\n";
+        debugComparison.slice(0, 10).forEach((calc, idx) => {
+            summary += `${calc.timestamp.slice(11, 16)}: ${calc.totalArrondi}W/m² (graphique) \n`;
+        });
+        console.log(summary);
+        
+    }).catch(err => {
+        console.error('Erreur copie presse-papier:', err);
+        showVectorInTextArea(pythonVectorString, 'flux solaires synchronisés');
+    });
 }
+
+
 
 /* ========================================
    RÉCUPÉRATION DES DONNÉES MÉTÉO (OPEN-METEO CORRIGÉ)
@@ -435,11 +599,11 @@ function displayHourlyForecast() {
             </div>
             <div style="margin: 15px 0;">
                 <button onclick="generatePythonVector()" style="background: #00b894; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;">
-                    🐍 Copier Vecteur Python (Températures/seconde)
-                </button>
-                <small style="display: block; margin-top: 5px; color: #636e72;">
-                    Génère un vecteur avec les températures pour chaque seconde des 10 prochaines heures (36,000 valeurs)
-                </small>
+                   🐍 Copier Vecteur Python (Températures/seconde - Interpolation Linéaire)
+               </button>
+               <small style="display: block; margin-top: 5px; color: #636e72;">
+                   Génère un vecteur avec transitions graduelles entre les températures horaires (36,000 valeurs avec interpolation linéaire)
+               </small>
             </div>
             <div class="hourly-grid">
     `;
@@ -699,6 +863,15 @@ function calculateSolarRadiation() {
                     <h4>📊 SOMME TOTALE</h4>
                     <p><strong>TOTAL :</strong> <span style="font-size: 1.5em; color: #00b894;">${totalOnWall.toFixed(1)} W/m²</span></p>
                 </div>
+            </div>
+            <div style="margin: 15px 0; text-align: center;">
+                <button onclick="generateSolarFluxVector()" style="background: #fd7900; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-right: 10px;">
+                   ☀️ Copier Vecteur Python (Flux Solaires/seconde - Interpolation Linéaire)
+                </button>
+                <small style="display: block; margin-top: 5px; color: #636e72;">
+                    Génère un vecteur avec transitions graduelles entre les flux solaires horaires (36,000 valeurs en W/m² avec interpolation linéaire)
+                </small>
+
             </div>
         </div>
     `;
