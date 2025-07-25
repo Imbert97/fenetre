@@ -322,6 +322,13 @@ function generatePythonVector() {
             vector.push(Math.round(interpolatedTemp * 10) / 10);
         }
     }
+   const pythonVectorString = `[${vector.join(', ')}]`;
+navigator.clipboard.writeText(pythonVectorString).then(() => {
+  showSuccessMessage(`✅ Vecteur Python températures copié ! (${vector.length} valeurs)`);
+}).catch(err => {
+  showVectorInTextArea(pythonVectorString, 'températures synchronisées');
+});
+
 }
 
 
