@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.0.0";
+const CODE_VERSION = "v1.0.1";
 
 /* ========================================
    VARIABLES GLOBALES
@@ -417,16 +417,19 @@ function generateSolarFluxVector() {
     }
 
     // 🔧 Interpolation linéaire sur chaque intervalle horaire — identique au graphique
-    const vector = [];
-    for (let h = 0; h < Math.min(10, solarFluxes.length - 1); h++) {
-        const currentFlux = solarFluxes[h];
-        const nextFlux = solarFluxes[h+1];
-        for (let i = 0; i < 3600; i++) {
-            const progress = i / 3600;
-            const interpolatedFlux = currentFlux + (nextFlux - currentFlux) * progress;
-            vector.push(Math.round(interpolatedFlux * 10) / 10); // arrondi à 0.1
-        }
-    }
+   const vector = [];
+   for (let h = 0; h < Math.min(10, solarFluxes.length - 1); h++) {
+       const currentFlux = solarFluxes[h];
+       const nextFlux = solarFluxes[h + 1];
+       const tempDiff = nextFlux - currentFlux;
+       // Interpolation linéaire par minute (60 valeurs par heure)
+       for (let i = 0; i < 60; i++) {
+           const progress = i / 60; // de 0 à <1
+           const interpolatedFlux = currentFlux + (tempDiff * progress);
+           vector.push(Math.round(interpolatedFlux * 10) / 10);
+       }
+   }
+
 
     // Debug pour contrôle rapide
     console.log('☀️ Synthèse graphique/vecteur:', debugComparison);
@@ -533,10 +536,10 @@ function displayHourlyForecast() {
             </div>
             <div style="margin: 15px 0;">
                 <button onclick="generatePythonVector()" style="background: #00b894; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;">
-                   🐍 Copier Vecteur Python (Températures/seconde - Interpolation Linéaire)
+                   🐍 Copier Vecteur Python (Températures/minute - Interpolation Linéaire)
                </button>
                <small style="display: block; margin-top: 5px; color: #636e72;">
-                   Génère un vecteur avec transitions graduelles entre les températures horaires (32 400 valeurs avec interpolation linéaire)
+                   Génère un vecteur avec transitions graduelles entre les températures horaires (540 valeurs avec interpolation linéaire)
                </small>
             </div>
             <div class="hourly-grid">
