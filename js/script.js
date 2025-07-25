@@ -264,7 +264,7 @@ function selectAddressResult(latitude, longitude, displayName) {
 }
 
 /* ========================================
-   🔧 FONCTION CORRIGÉE : GÉNÉRATION VECTEUR PYTHON AVEC INTERPOLATION LINÉAIRE
+   🔧 FONCTION : GÉNÉRATION VECTEUR PYTHON AVEC INTERPOLATION LINÉAIRE
 ======================================== */
 
 function generatePythonVector() {
@@ -287,7 +287,7 @@ function generatePythonVector() {
     }
 
     // Récupérer 11 heures pour avoir des transitions entre 10 heures
-    const maxHours = Math.min(11, weatherData.hourly.temperature_2m.length - startIndex);
+    const maxHours = Math.min(10, weatherData.hourly.temperature_2m.length - startIndex);
     const temps = weatherData.hourly.temperature_2m.slice(startIndex, startIndex + maxHours);
     
     if (temps.length < 2) {
@@ -400,7 +400,7 @@ function generateSolarFluxVector() {
     const debugComparison = []; // Pour vérifier la correspondance
 
     // 🔧 Calculs strictement identiques à ceux du graphique
-    const maxHours = Math.min(11, weatherData.hourly.time.length - startIndex);
+    const maxHours = Math.min(10, weatherData.hourly.time.length - startIndex);
     for (let i = 0; i < maxHours; i++) {
         const dataIndex = startIndex + i;
         const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
