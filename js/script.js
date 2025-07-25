@@ -316,7 +316,7 @@ function generatePythonVector() {
     });
 }
 
-function showVectorInTextArea(vectorString) {
+function showVectorInTextArea(vectorString, type = 'températures') {
     const existingTextArea = document.getElementById('pythonVectorOutput');
     if (existingTextArea) {
         existingTextArea.remove();
@@ -337,12 +337,124 @@ function showVectorInTextArea(vectorString) {
     `;
     textArea.readOnly = true;
 
-    const container = document.querySelector('.hourly-forecast') || document.querySelector('.input-group');
+    const container = document.querySelector('.solar-current') || document.querySelector('.hourly-forecast') || document.querySelector('.input-group');
     if (container) {
         container.appendChild(textArea);
         textArea.select();
-        showSuccessMessage('📋 Vecteur affiché ci-dessous - Sélectionnez et copiez manuellement');
+        showSuccessMessage(`📋 Vecteur ${type} affiché ci-dessous - Sélectionnez et copiez manuellement`);
     }
+}
+
+
+/* ========================================
+   🔧 NOUVELLE FONCTION : GÉNÉRATION VECTEUR PYTHON FLUX SOLAIRES
+======================================== */
+
+function generateSolarFluxVector() {
+    if (!weatherData || !weatherData.hourly) {
+        alert('❌ Aucune donnée météo disponible. Récupérez d\'abord les prévisions.');
+        return;
+    }
+
+    // Récupérer les paramètres de calcul solaire actuels
+    const orientationSelect = document.getElementById('wallOrientation');
+    const customAzimuth = document.getElementById('customAzimuth');
+    const wallTilt = parseFloat(document.getElementById('wallTilt').value) || 90;
+    const albedo = parseFloat(document.getElementById('albedo').value) || 0.2;
+    const windowHeight = parseFloat(document.getElementById('windowHeight').value) || 0;
+
+    if (!orientationSelect) {
+        alert('❌ Veuillez d\'abord configurer les paramètres solaires.');
+        return;
+    }
+
+    let surfaceAzimuth;
+    if (orientationSelect.value === 'custom') {
+        surfaceAzimuth = parseFloat(customAzimuth.value);
+        if (isNaN(surfaceAzimuth)) {
+            alert('❌ Veuillez entrer un azimuth personnalisé valide.');
+            return;
+        }
+    } else {
+        surfaceAzimuth = orientationToAzimuth(orientationSelect.value);
+    }
+
+    // Trouver l'index de départ (même logique que l'affichage)
+    const now = new Date();
+    let startIndex = 0;
+    const currentTimeMs = now.getTime();
+    
+    for (let i = 0; i < weatherData.hourly.time.length; i++) {
+        const weatherTime = new Date(weatherData.hourly.time[i]);
+        const weatherTimeMs = weatherTime.getTime();
+        if (weatherTimeMs >= (currentTimeMs - 30 * 60 * 1000)) {
+            startIndex = i;
+            break;
+        }
+    }
+
+    const solarFluxes = [];
+    
+    // Calculer les flux solaires pour les 10 prochaines heures
+    for (let i = 0; i < 10 && (startIndex + i) < weatherData.hourly.time.length; i++) {
+        const dataIndex = startIndex + i;
+        const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
+        
+        // Données météo pour cette heure
+        const GHIh = weatherData.hourly.shortwave_radiation ? 
+            weatherData.hourly.shortwave_radiation[dataIndex] : 800;
+        const DNIh = weatherData.hourly.direct_radiation ? 
+            weatherData.hourly.direct_radiation[dataIndex] : 900;
+        const DHIh = weatherData.hourly.diffuse_radiation ? 
+            weatherData.hourly.diffuse_radiation[dataIndex] : 100;
+        
+        // Calcul de la position solaire
+        const solarPos = calculateSolarPosition(lat, lng, weatherTime);
+        const aoi = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPos.zenith, solarPos.azimuth);
+        
+        // Calcul du rayonnement total sur la surface
+        let directOnWall = 0;
+        if (aoi < 90) {
+            directOnWall = DNIh * Math.max(0, cosd(aoi));
+        }
+        
+        const diffuseOnWall = DHIh * (1 + cosd(wallTilt)) / 2;
+        
+        // Facteur de réduction pour la hauteur
+        const reduction = windowHeight <= 2 ? 1 : Math.exp(-0.2 * (windowHeight - 2));
+        const reflectedOnWall = GHIh * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
+        
+        const totalFlux = directOnWall + diffuseOnWall + reflectedOnWall;
+        solarFluxes.push(Math.round(totalFlux));
+    }
+
+    // Générer le vecteur avec 3600 valeurs par heure (1 par seconde)
+    const vector = [];
+    solarFluxes.forEach(flux => {
+        for (let i = 0; i < 3600; i++) {
+            vector.push(flux);
+        }
+    });
+
+    const pythonVectorString = `[${vector.join(', ')}]`;
+    
+    // Copier dans le presse-papier
+    navigator.clipboard.writeText(pythonVectorString).then(() => {
+        showSuccessMessage(`✅ Vecteur Python flux solaires copié ! (${vector.length} valeurs - ${solarFluxes.length} heures)`);
+        console.log('☀️ Vecteur Python flux solaires généré:', {
+            heures: solarFluxes.length,
+            valeursParHeure: 3600,
+            totalValeurs: vector.length,
+            fluxHoraires: solarFluxes,
+            orientation: surfaceAzimuth + '°',
+            inclinaison: wallTilt + '°',
+            premieresValeurs: vector.slice(0, 10),
+            dernieresValeurs: vector.slice(-10)
+        });
+    }).catch(err => {
+        console.error('Erreur copie presse-papier:', err);
+        showVectorInTextArea(pythonVectorString, 'flux solaires');
+    });
 }
 
 /* ========================================
@@ -699,6 +811,14 @@ function calculateSolarRadiation() {
                     <h4>📊 SOMME TOTALE</h4>
                     <p><strong>TOTAL :</strong> <span style="font-size: 1.5em; color: #00b894;">${totalOnWall.toFixed(1)} W/m²</span></p>
                 </div>
+            </div>
+            <div style="margin: 15px 0; text-align: center;">
+                <button onclick="generateSolarFluxVector()" style="background: #fd7900; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-right: 10px;">
+                    ☀️ Copier Vecteur Python (Flux Solaires/seconde)
+                </button>
+                <small style="display: block; margin-top: 5px; color: #636e72;">
+                    Génère un vecteur avec les flux solaires pour chaque seconde des 10 prochaines heures (36,000 valeurs en W/m²)
+                </small>
             </div>
         </div>
     `;
