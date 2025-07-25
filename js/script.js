@@ -5,7 +5,7 @@
 let map, marker, lat = 46.8139, lng = -71.2080; // Québec par défaut
 let weatherData = null;
 let tempSelectedPosition = null;
-let solarChartInstance = null; // Pour le graphique Chart.js
+let solarChartInstance = null;
 
 /* ========================================
    CODES MÉTÉO WMO ET ICÔNES
@@ -100,7 +100,7 @@ function initMap() {
 }
 
 /* ========================================
-   GESTION UNIFIÉE DES POSITIONS (CORRIGÉE)
+   GESTION UNIFIÉE DES POSITIONS
 ======================================== */
 
 function showPositionValidation() {
@@ -146,39 +146,25 @@ function getCurrentLocation() {
     }
 }
 
-// 🔧 FONCTION CORRIGÉE pour le bouton "Définir cette position"
 function validatePosition() {
     if (!tempSelectedPosition) {
         alert('Aucune position sélectionnée à valider');
         return;
     }
     
-    // Mettre à jour les coordonnées globales
     lat = tempSelectedPosition.lat;
     lng = tempSelectedPosition.lng;
-    
-    // Mettre à jour la carte
     map.setView([lat, lng], 12);
     if (marker) map.removeLayer(marker);
     marker = L.marker([lat, lng]).addTo(map)
         .bindPopup(`✅ POSITION VALIDÉE<br>📍 ${tempSelectedPosition.name}<br>Coordonnées: ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
         .openPopup();
-    
-    // Mettre à jour l'affichage des coordonnées
     updateLocationDisplay();
-    
-    // Cacher la validation
     hidePositionValidation();
-    
-    // Vider les champs de saisie
     document.getElementById('manualLat').value = '';
     document.getElementById('manualLng').value = '';
     document.getElementById('addressSearch').value = '';
-    
-    // Afficher un message de succès
     showSuccessMessage('✅ Position validée avec succès !');
-    
-    // 🔧 IMPORTANT : Récupérer automatiquement les nouvelles données météo
     getWeatherData();
 }
 
@@ -278,7 +264,89 @@ function selectAddressResult(latitude, longitude, displayName) {
 }
 
 /* ========================================
-   RÉCUPÉRATION DES DONNÉES MÉTÉO (SIMPLE ET FIABLE)
+   🔧 NOUVELLE FONCTION : GÉNÉRATION VECTEUR PYTHON
+======================================== */
+
+function generatePythonVector() {
+    if (!weatherData || !weatherData.hourly || !weatherData.hourly.temperature_2m) {
+        alert('❌ Aucune donnée météo disponible. Récupérez d\'abord les prévisions.');
+        return;
+    }
+
+    // Trouver l'index de départ (même logique que l'affichage)
+    const now = new Date();
+    let startIndex = 0;
+    const currentTimeMs = now.getTime();
+    
+    for (let i = 0; i < weatherData.hourly.time.length; i++) {
+        const weatherTime = new Date(weatherData.hourly.time[i]);
+        const weatherTimeMs = weatherTime.getTime();
+        if (weatherTimeMs >= (currentTimeMs - 30 * 60 * 1000)) {
+            startIndex = i;
+            break;
+        }
+    }
+
+    const temps = weatherData.hourly.temperature_2m.slice(startIndex, startIndex + 10); // 10 heures
+    const vector = [];
+    
+    // Générer 3600 valeurs (1 par seconde) pour chaque heure
+    temps.forEach(temp => {
+        for (let i = 0; i < 3600; i++) {
+            vector.push(Math.round(temp));
+        }
+    });
+
+    const pythonVectorString = `[${vector.join(', ')}]`;
+    
+    // Copier dans le presse-papier
+    navigator.clipboard.writeText(pythonVectorString).then(() => {
+        showSuccessMessage(`✅ Vecteur Python copié ! (${vector.length} valeurs - ${temps.length} heures)`);
+        console.log('📊 Vecteur Python généré:', {
+            heures: temps.length,
+            valeursParHeure: 3600,
+            totalValeurs: vector.length,
+            temperaturesHoraires: temps,
+            premieresValeurs: vector.slice(0, 10),
+            dernieresValeurs: vector.slice(-10)
+        });
+    }).catch(err => {
+        console.error('Erreur copie presse-papier:', err);
+        showVectorInTextArea(pythonVectorString);
+    });
+}
+
+function showVectorInTextArea(vectorString) {
+    const existingTextArea = document.getElementById('pythonVectorOutput');
+    if (existingTextArea) {
+        existingTextArea.remove();
+    }
+
+    const textArea = document.createElement('textarea');
+    textArea.id = 'pythonVectorOutput';
+    textArea.value = vectorString;
+    textArea.style.cssText = `
+        width: 100%; 
+        height: 100px; 
+        margin: 10px 0; 
+        font-family: monospace; 
+        font-size: 12px;
+        border: 2px solid #00b894;
+        border-radius: 5px;
+        padding: 10px;
+    `;
+    textArea.readOnly = true;
+
+    const container = document.querySelector('.hourly-forecast') || document.querySelector('.input-group');
+    if (container) {
+        container.appendChild(textArea);
+        textArea.select();
+        showSuccessMessage('📋 Vecteur affiché ci-dessous - Sélectionnez et copiez manuellement');
+    }
+}
+
+/* ========================================
+   RÉCUPÉRATION DES DONNÉES MÉTÉO (OPEN-METEO CORRIGÉ)
 ======================================== */
 
 async function getWeatherData() {
@@ -288,7 +356,7 @@ async function getWeatherData() {
             loadingIndicator.style.display = 'block';
         }
         
-        // URL simple et directe - retour à l'original qui fonctionnait
+        // 🔧 REQUÊTE OPEN-METEO OPTIMISÉE
         const response = await fetch(
             `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,shortwave_radiation,direct_radiation,diffuse_radiation&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,is_day,shortwave_radiation,direct_radiation,diffuse_radiation&timezone=auto&forecast_hours=48`
         );
@@ -296,7 +364,7 @@ async function getWeatherData() {
         if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
         weatherData = await response.json();
         
-        console.log('🔍 Données météo récupérées:', weatherData);
+        console.log('🔍 Données météo Open-Meteo récupérées:', weatherData);
         displayHourlyForecast();
         
     } catch (error) {
@@ -311,7 +379,7 @@ async function getWeatherData() {
 }
 
 /* ========================================
-   AFFICHAGE DES PRÉVISIONS HORAIRES (SOLUTION DÉFINITIVE)
+   AFFICHAGE DES PRÉVISIONS HORAIRES (CORRIGÉ FUSEAUX HORAIRES)
 ======================================== */
 
 function displayHourlyForecast() {
@@ -324,17 +392,20 @@ function displayHourlyForecast() {
     const targetTimezone = weatherData.timezone || 'UTC';
     const now = new Date();
     
-    // 🔧 CORRECTION : Même logique pour trouver l'index de départ
+    // 🔧 CORRECTION : Logique fiable pour trouver l'index de départ
     let startIndex = 0;
     const currentTimeMs = now.getTime();
+    
     for (let i = 0; i < hourly.time.length; i++) {
         const weatherTime = new Date(hourly.time[i]);
         const weatherTimeMs = weatherTime.getTime();
-        if (weatherTimeMs >= (currentTimeMs - 30 * 60 * 1000)) {
+        if (weatherTimeMs >= (currentTimeMs - 30 * 60 * 1000)) { // 30 minutes de marge
             startIndex = i;
             break;
         }
     }
+    
+    console.log(`🕐 Index de départ: ${startIndex}, Total heures: ${hourly.time.length}`);
     
     const nowInTargetTz = new Intl.DateTimeFormat('fr-FR', {
         timeZone: targetTimezone,
@@ -355,7 +426,7 @@ function displayHourlyForecast() {
     
     let forecastHTML = `
         <div class="hourly-forecast">
-            <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${targetTimezone})</h3>
+            <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${targetTimezone}) - Open-Meteo</h3>
             <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
                 🕐 Maintenant à ${targetTimezone} : ${nowInTargetTz}
                 <br>📅 Première prévision : ${firstForecastTime}
@@ -363,14 +434,22 @@ function displayHourlyForecast() {
                 <br>📊 Total heures API : ${hourly.time.length}
                 <br>📍 Position : ${lat.toFixed(4)}, ${lng.toFixed(4)}
             </div>
+            <div style="margin: 15px 0;">
+                <button onclick="generatePythonVector()" style="background: #00b894; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                    🐍 Copier Vecteur Python (Températures/seconde)
+                </button>
+                <small style="display: block; margin-top: 5px; color: #636e72;">
+                    Génère un vecteur avec les températures pour chaque seconde des 10 prochaines heures (36,000 valeurs)
+                </small>
+            </div>
             <div class="hourly-grid">
     `;
     
-    // 🔧 CORRECTION PRINCIPALE : Affichage correct des heures
+    // 🔧 CORRECTION PRINCIPALE : Affichage correct des heures sans double conversion
     for (let i = 0; i < 10 && (startIndex + i) < hourly.time.length; i++) {
         const dataIndex = startIndex + i;
         
-        // ⚡ SOLUTION : Parser directement la chaîne ISO retournée par l'API
+        // ⚡ SOLUTION : Parser directement la chaîne ISO de l'API
         const timeString = hourly.time[dataIndex]; // Ex: "2025-07-25T09:00"
         
         // Extraire l'heure et la date directement de la chaîne ISO
@@ -378,12 +457,7 @@ function displayHourlyForecast() {
         const [year, month, day] = datePart.split('-');
         const [hour, minute] = timePart.split(':');
         
-        // Créer une date dans le fuseau cible sans conversion
-        const localDate = new Date();
-        localDate.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
-        localDate.setHours(parseInt(hour), parseInt(minute), 0, 0);
-        
-        // Afficher l'heure directement depuis la chaîne ISO
+        // Afficher l'heure directement depuis la chaîne ISO (pas de conversion)
         const timeStr = `${hour}:${minute}`;
         const dateStr = `${day}/${month}`;
         
@@ -419,6 +493,7 @@ function displayHourlyForecast() {
             </div>
             <div class="info" style="margin-top: 20px; background: rgba(255,255,255,0.2); color: white; border: none;">
                 💡 <strong>Conseil rideaux:</strong> Consultez ces prévisions pour planifier l'ouverture/fermeture de vos rideaux selon la température et l'ensoleillement attendus.
+                <br>🐍 <strong>Vecteur Python:</strong> Cliquez sur le bouton ci-dessus pour copier un vecteur avec les températures de chaque seconde.
             </div>
         </div>
     `;
@@ -634,12 +709,11 @@ function calculateSolarRadiation() {
         if (canvasElement) {
             const labels = [];
             const data = [];
-            
             const targetTimezone = weatherData.timezone || 'UTC';
             const now = new Date();
             let startIndex = 0;
             
-            // Même logique que pour l'affichage des prévisions
+            // Même logique pour trouver l'index de départ
             for (let i = 0; i < weatherData.hourly.time.length; i++) {
                 const weatherTime = new Date(weatherData.hourly.time[i]);
                 if (weatherTime.getTime() >= (now.getTime() - 30 * 60 * 1000)) {
@@ -653,13 +727,13 @@ function calculateSolarRadiation() {
                 
                 if (dataIndex >= weatherData.hourly.time.length) break;
                 
-                const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
+                // 🔧 CORRECTION : Même traitement des heures que l'affichage
+                const timeString = weatherData.hourly.time[dataIndex];
+                const [datePart, timePart] = timeString.split('T');
+                const [hour, minute] = timePart.split(':');
+                const hourStr = `${hour}:${minute}`;
                 
-                const hourStr = new Intl.DateTimeFormat('fr-FR', {
-                    timeZone: targetTimezone,
-                    hour: '2-digit',
-                    minute: '2-digit'
-                }).format(weatherTime);
+                const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
                 
                 const GHIh = weatherData.hourly.shortwave_radiation ? 
                     weatherData.hourly.shortwave_radiation[dataIndex] : GHI;
@@ -730,7 +804,7 @@ function calculateSolarRadiation() {
 ======================================== */
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Initialisation de l\'application...');
+    console.log('🚀 Initialisation de l\'application avec Open-Meteo...');
     
     initMap();
     updateLocationDisplay();
@@ -800,5 +874,3 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ Application initialisée avec succès !');
 });
-
-
