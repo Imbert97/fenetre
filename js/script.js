@@ -266,13 +266,12 @@ function selectAddressResult(latitude, longitude, displayName) {
 /* ========================================
    🔧 FONCTION : GÉNÉRATION VECTEUR PYTHON AVEC INTERPOLATION LINÉAIRE
 ======================================== */
-
 function generatePythonVector() {
     if (!weatherData || !weatherData.hourly || !weatherData.hourly.temperature_2m) {
         alert('❌ Aucune donnée météo disponible. Récupérez d\'abord les prévisions.');
         return;
     }
-
+    
     const now = new Date();
     let startIndex = 0;
     const currentTimeMs = now.getTime();
@@ -285,7 +284,7 @@ function generatePythonVector() {
             break;
         }
     }
-
+    
     // Récupérer 11 heures pour avoir des transitions entre 10 heures
     const maxHours = Math.min(10, weatherData.hourly.temperature_2m.length - startIndex);
     const temps = weatherData.hourly.temperature_2m.slice(startIndex, startIndex + maxHours);
@@ -294,7 +293,7 @@ function generatePythonVector() {
         alert('❌ Pas assez de données pour générer des transitions graduelles.');
         return;
     }
-
+    
     const vector = [];
     const debugInfo = []; // Pour vérifier l'interpolation
     
@@ -312,9 +311,9 @@ function generatePythonVector() {
             difference: tempDiff
         });
         
-        // Générer 3600 valeurs interpolées pour cette heure
-        for (let i = 0; i < 3600; i++) {
-            const progress = i / 3600; // 0 à 1 (progression dans l'heure)
+        // Générer 60 valeurs interpolées pour cette heure (une par minute)
+        for (let i = 0; i < 60; i++) {
+            const progress = i / 60; // 0 à 1 (progression dans l'heure)
             
             // 🔧 CORRECTION : Utiliser plus de précision avant l'arrondi
             const interpolatedTemp = currentTemp + (tempDiff * progress);
@@ -323,32 +322,6 @@ function generatePythonVector() {
             vector.push(Math.round(interpolatedTemp * 10) / 10);
         }
     }
-
-    // 🔧 DEBUG : Afficher les premiers et derniers échantillons pour vérifier
-    console.log('🔍 Vérification interpolation températures:', {
-        infoTransitions: debugInfo,
-        premieres20Valeurs: vector.slice(0, 20),
-        valeursAutourHeure1: vector.slice(3580, 3620), // Autour de la transition 1ère→2ème heure
-        dernieres20Valeurs: vector.slice(-20)
-    });
-
-    const pythonVectorString = `[${vector.join(', ')}]`;
-    
-    navigator.clipboard.writeText(pythonVectorString).then(() => {
-        showSuccessMessage(`✅ Vecteur Python avec interpolation linéaire copié ! (${vector.length} valeurs - ${Math.min(10, temps.length - 1)} heures)`);
-        
-        // Afficher un résumé des transitions
-        let transitionSummary = "Transitions détectées:\n";
-        debugInfo.forEach(info => {
-            transitionSummary += `Heure ${info.heure}: ${info.tempActuelle}°C → ${info.tempSuivante}°C (${info.difference > 0 ? '+' : ''}${info.difference.toFixed(1)}°C)\n`;
-        });
-        console.log(transitionSummary);
-        
-    }).catch(err => {
-        console.error('Erreur copie presse-papier:', err);
-        showVectorInTextArea(pythonVectorString, 'températures avec interpolation linéaire');
-    });
-}
 
 
 
