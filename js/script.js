@@ -11,36 +11,35 @@
     </style>
 </head>
 <body>
-    <h2>Météo & Simulation Solaire</h2>
-    <div id="map"></div>
-    <div id="controls">
-        <input type="text" id="searchInput" placeholder="Adresse ou lieu"/>
-        <button id="searchBtn">Rechercher</button>
-        <button id="runCalcBtn">Calculer (Météo + Solaire)</button>
-    </div>
-
-    <!-- Paramètres utilisateurs optionnels -->
-    <div>
-        Orientation (azimut, °, sud=180): <input type="number" id="sliderOrient" min="0" max="360" value="180">
-        Inclinaison (°, vertical=90): <input type="number" id="sliderInclinaison" min="0" max="180" value="90">
-        Albédo: <input type="number" step="0.01" id="inputAlbedo" min="0" max="1" value="0.2">
-    </div>
-
-    <div>
-        <canvas id="solarChart" height="120"></canvas>
-    </div>
-    <div id="results">
-        <b>Vecteur Température (Python) :</b><br>
-        <textarea id="python-temperature" readonly></textarea><br>
-        <b>Vecteur Flux Solaire (Python) :</b><br>
-        <textarea id="python-solar" readonly></textarea>
-    </div>
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
+<h2>Météo & Simulation Solaire</h2>
+<div id="map"></div>
+<div id="controls">
+    <input type="text" id="searchInput" placeholder="Adresse ou lieu"/>
+    <button id="searchBtn">Rechercher</button>
+    <button id="setPositionBtn">Définir comme position</button><!-- <== le bouton explicite -->
+    <button id="runCalcBtn">Calculer météo + solaire</button>
+</div>
+<div>
+    Orientation (azimut°): <input type="number" id="sliderOrient" min="0" max="360" value="180">
+    Inclinaison (°): <input type="number" id="sliderInclinaison" min="0" max="180" value="90">
+    Albédo: <input type="number" step="0.01" id="inputAlbedo" min="0" max="1" value="0.2">
+</div>
+<div>
+    <canvas id="solarChart" height="120"></canvas>
+</div>
+<div id="results">
+    <b>Vecteur Température (Python) :</b><br>
+    <textarea id="python-temperature" readonly></textarea><br>
+    <b>Vecteur Flux Solaire (Python) :</b><br>
+    <textarea id="python-solar" readonly></textarea>
+</div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
     // === Variables globales ===
     let map = null, marker = null;
-    let currentLat = 46.81, currentLng = -71.21;
+    let tempLat = 46.81, tempLng = -71.21;        // Position courante sur la carte (modifiable)
+    let validLat = 46.81, validLng = -71.21;      // Dernière position validée
     let weatherData = null, solarFluxVector = [], tempVector = [];
     let userParams = {
         orientation: 180,
@@ -49,47 +48,56 @@
     };
     let myChart = null;
 
-    // === Initialisation carte Leaflet ===
+    // === Carte Leaflet/init ===
     function initMap() {
-        map = L.map('map').setView([currentLat, currentLng], 13);
+        map = L.map('map').setView([validLat, validLng], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap'
         }).addTo(map);
-        marker = L.marker([currentLat, currentLng], { draggable: true }).addTo(map);
-        marker.on('dragend', function (e) {
-            const pos = e.target.getLatLng();
-            currentLat = pos.lat;
-            currentLng = pos.lng;
-            onPositionChanged();
+        marker = L.marker([validLat, validLng], { draggable: true }).addTo(map);
+        marker.on('dragend', function(e) {
+            let pos = e.target.getLatLng();
+            tempLat = pos.lat;
+            tempLng = pos.lng;
+            updatePositionDisplay();
         });
-        map.on('click', function (e) {
-            currentLat = e.latlng.lat;
-            currentLng = e.latlng.lng;
-            marker.setLatLng([currentLat, currentLng]);
-            onPositionChanged();
+        map.on('click', function(e) {
+            tempLat = e.latlng.lat;
+            tempLng = e.latlng.lng;
+            marker.setLatLng([tempLat, tempLng]);
+            updatePositionDisplay();
         });
     }
 
-    // === Gestion changement position ===
-    function onPositionChanged() {
-        if (weatherData) controllerWorkflow();
+    // === Mise à jour d'info position affichée ===
+    function updatePositionDisplay() {
+        // Option : afficher la position proposée, non confirmée, par exemple via un label
+        // document.getElementById('positionAffichee').textContent = `Position proposée : ${tempLat.toFixed(5)}, ${tempLng.toFixed(5)}`;
     }
 
-    // === Recherche adresse OpenStreetMap Nominatim ===
+    // === Recherche adresse, MAJ du marqueur TEMPORAIRE uniquement ===
     async function searchAddress(query) {
         const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1`;
         const response = await fetch(url);
         const results = await response.json();
         if (results.length > 0) {
-            currentLat = parseFloat(results[0].lat);
-            currentLng = parseFloat(results[0].lon);
-            map.setView([currentLat, currentLng], 13);
-            marker.setLatLng([currentLat, currentLng]);
-            onPositionChanged();
+            tempLat = parseFloat(results[0].lat);
+            tempLng = parseFloat(results[0].lon);
+            map.setView([tempLat, tempLng], 13);
+            marker.setLatLng([tempLat, tempLng]);
+            updatePositionDisplay();
         }
     }
 
-    // === Récupération météo (Open-Meteo) ===
+    // === Validation de la position => MAJ coordonnées "validées" et lance calcul ===
+    function setPositionAndRun() {
+        validLat = tempLat;
+        validLng = tempLng;
+        document.getElementById('runCalcBtn').textContent = "Calculer météo + solaire"; // reset bouton
+        controllerWorkflow();
+    }
+
+    // === Open Meteo API ===
     async function getWeatherData(lat, lon) {
         const baseUrl = "https://api.open-meteo.com/v1/forecast";
         const params = `?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,cloudcover,precipitation,pressure_msl,relativehumidity_2m&timezone=auto`;
@@ -98,7 +106,7 @@
         weatherData = await res.json();
     }
 
-    // === Interpolation (linéaire) ===
+    // === Interpolation linéaire ===
     function interpolateHourlyToSeconds(hourlyArr) {
         const result = [];
         for (let h = 0; h < hourlyArr.length - 1; h++) {
@@ -107,67 +115,55 @@
                 result.push(v1 * (1 - (s/3600)) + v2 * (s/3600));
             }
         }
-        return result; // ex: 10h => 36 000 valeurs
+        return result;
     }
 
-    // === Calcul solaire simplifié cohérent partout ===
+    // === Calcul solaire : élévation, azimut, incidence, flux ===
     function getSolarPosition(date, lat, lng) {
-        // Simplifié: précision ~quelques degrés, OK pour flux fenêtre
-        const rad = Math.PI / 180;
+        const rad = Math.PI/180;
         const day = Math.floor((date - new Date(date.getFullYear(),0,0)) / 86400000);
         const declDeg = -23.44 * Math.cos(rad * (360/365 * (day+10)));
         const decl = declDeg * rad;
         const hour = date.getHours() + date.getMinutes()/60;
         const lstm = 15 * Math.round(lng/15);
-        const timeOffset = (lng - lstm) * 4; // minutes
+        const timeOffset = (lng - lstm) * 4;
         const solarNoon = 12 - timeOffset/60;
         const hAngle = rad * 15 * (hour - solarNoon);
 
         const latRad = lat * rad;
         const elev = Math.asin(Math.sin(latRad)*Math.sin(decl) + Math.cos(latRad)*Math.cos(decl)*Math.cos(hAngle));
-        // Azim: 0=nord, sens des aiguilles, 180=sud
         const sinAz = -Math.sin(hAngle) * Math.cos(decl) / Math.cos(elev);
         let azim = Math.acos((Math.sin(decl)-Math.sin(elev)*Math.sin(latRad)) / (Math.cos(elev)*Math.cos(latRad)));
         azim = sinAz>0 ? 360-azim*(180/Math.PI): azim*(180/Math.PI);
-        return {
-            elevation: elev*180/Math.PI, // ° au-dessus horizon
-            azimuth: azim
-        };
+        return { elevation: elev*180/Math.PI, azimuth: azim };
     }
-
     function calculateAngleOfIncidence(sun, params) {
-        // sun: {elevation, azimuth} en degrés
-        // params: {orientation, inclinaison}
         const rad = Math.PI/180;
-        const sAzi = sun.azimuth * rad;
-        const sElv = sun.elevation * rad;
-        const wAzi = params.orientation * rad;
-        const wIncl = params.inclinaison * rad;
+        const sAzi = sun.azimuth * rad, sElv = sun.elevation * rad;
+        const wAzi = params.orientation * rad, wIncl = params.inclinaison * rad;
         const cosInc = Math.cos(wIncl)*Math.sin(sElv) + Math.sin(wIncl)*Math.cos(sElv)*Math.cos(sAzi-wAzi);
-        return Math.acos(Math.min(Math.max(cosInc,-1),1)) * 180/Math.PI; // clamp cos for sécurité
+        return Math.acos(Math.min(Math.max(cosInc,-1),1)) * 180/Math.PI;
     }
-
     function calculateSolarRadiation(date, lat, lng, params) {
-        // Simple: pas d'ATM, flux direct sur surface selon incidence (+0 si soleil sous horizon)
-        const Gsc = 1000; // W/m² max solstice
+        const Gsc = 1000; // W/m²
         const sun = getSolarPosition(date, lat, lng);
         if (sun.elevation <= 0) return 0;
         const theta = calculateAngleOfIncidence(sun, params);
         return Gsc * Math.max(0, Math.cos(theta*Math.PI/180));
     }
 
-    function generateSolarDataHourly() {
+    // === Génération/interpolation flux solaire ===
+    function generateSolarDataHourly(lat, lng, params) {
         if (!weatherData) return [];
         const times = weatherData.hourly.time;
-        const n = times.length;
         const out = [];
-        for (let h=0; h<n; h++) {
-            out.push(calculateSolarRadiation(new Date(times[h]), currentLat, currentLng, userParams));
+        for (let h=0; h<times.length; h++) {
+            out.push(calculateSolarRadiation(new Date(times[h]), lat, lng, params));
         }
         return out;
     }
-    function generateSolarFluxVector() {
-        const hr = generateSolarDataHourly();
+    function generateSolarFluxVector(lat, lng, params) {
+        const hr = generateSolarDataHourly(lat, lng, params);
         solarFluxVector = interpolateHourlyToSeconds(hr);
         return solarFluxVector;
     }
@@ -176,13 +172,13 @@
         return tempVector;
     }
 
-    // === Affichage graphique Chart.js (profil flux solaire) ===
+    // === Affichage graphique (profil flux solaire) ===
     function updateSolarChart() {
-        generateSolarFluxVector();
+        // downsample 1/min pour le graph
         const data = [];
         for (let i = 0; i < solarFluxVector.length; i += 60) data.push(solarFluxVector[i]);
         const labels = [];
-        for (let k = 0; k < data.length; ++k) labels.push((k/60).toFixed(1)); // heure
+        for (let k = 0; k < data.length; ++k) labels.push((k/60).toFixed(1));
         if (!myChart) {
             const ctx = document.getElementById('solarChart').getContext('2d');
             myChart = new Chart(ctx, {
@@ -213,40 +209,43 @@
         }
     }
 
-    // === Génération vecteurs Python pour copie-coller ===
+    // === Génération vecteurs Python exportables ===
     function getPythonVector(vector) {
         return "[" + vector.map(v => v.toFixed(2)).join(", ") + "]";
     }
 
-    // === Contrôleur principal ===
+    // === Contrôleur principal (EXÉCUTÉ uniquement lors du clic "Définir position") ===
     async function controllerWorkflow() {
         // Récup. valeurs UI utilisateurs :
         userParams.orientation = Number(document.getElementById('sliderOrient').value);
         userParams.inclinaison = Number(document.getElementById('sliderInclinaison').value);
         userParams.albedo = Number(document.getElementById('inputAlbedo').value);
-
-        await getWeatherData(currentLat, currentLng);
+        // Météo + calculs
+        document.getElementById('runCalcBtn').textContent = "Chargement ...";
+        await getWeatherData(validLat, validLng);
         generateTempVector();
-        generateSolarFluxVector();
+        generateSolarFluxVector(validLat, validLng, userParams);
         updateSolarChart();
-
         document.getElementById('python-temperature').value = getPythonVector(tempVector);
         document.getElementById('python-solar').value = getPythonVector(solarFluxVector);
+        document.getElementById('runCalcBtn').textContent = "Calculer météo + solaire";
     }
 
-    // === Initialisation UI/handlers ===
+    // === Init Handlers ===
     window.onload = function() {
         initMap();
         document.getElementById('searchBtn').onclick = function() {
             const q = document.getElementById('searchInput').value;
             searchAddress(q);
         };
+        document.getElementById('setPositionBtn').onclick = setPositionAndRun;
         document.getElementById('runCalcBtn').onclick = controllerWorkflow;
         document.getElementById('sliderOrient').oninput = controllerWorkflow;
         document.getElementById('sliderInclinaison').oninput = controllerWorkflow;
         document.getElementById('inputAlbedo').oninput = controllerWorkflow;
     };
-    </script>
+</script>
 </body>
 </html>
+
 
