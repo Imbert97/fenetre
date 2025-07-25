@@ -971,3 +971,4 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ Application initialisée avec succès !');
 });
+}
