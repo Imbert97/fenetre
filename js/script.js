@@ -2,78 +2,78 @@
    VARIABLES GLOBALES
 ======================================== */
 
-let map, marker, lat = 46.8139, lng = -71.2080; // QuÃ©bec par dÃ©faut
+let map, marker, lat = 46.8139, lng = -71.2080; // Québec par défaut
 let weatherData = null;
 let tempSelectedPosition = null;
 let solarChartInstance = null;
 
 /* ========================================
-   CODES MÃ‰TÃ‰O WMO ET ICÃ”NES
+   CODES MÉTÉO WMO ET ICÔNES
 ======================================== */
 
 const weatherCodes = {
-    0: "Ciel dÃ©gagÃ©",
-    1: "Principalement dÃ©gagÃ©", 
+    0: "Ciel dégagé",
+    1: "Principalement dégagé", 
     2: "Partiellement nuageux",
     3: "Couvert",
     45: "Brouillard",
     48: "Brouillard givrant",
-    51: "Bruine lÃ©gÃ¨re",
-    53: "Bruine modÃ©rÃ©e", 
+    51: "Bruine légère",
+    53: "Bruine modérée", 
     55: "Bruine dense",
-    56: "Bruine verglaÃ§ante lÃ©gÃ¨re",
-    57: "Bruine verglaÃ§ante dense",
-    61: "Pluie lÃ©gÃ¨re",
-    63: "Pluie modÃ©rÃ©e",
+    56: "Bruine verglaçante légère",
+    57: "Bruine verglaçante dense",
+    61: "Pluie légère",
+    63: "Pluie modérée",
     65: "Pluie forte",
-    66: "Pluie verglaÃ§ante lÃ©gÃ¨re",
-    67: "Pluie verglaÃ§ante forte",
-    71: "Neige lÃ©gÃ¨re",
-    73: "Neige modÃ©rÃ©e",
+    66: "Pluie verglaçante légère",
+    67: "Pluie verglaçante forte",
+    71: "Neige légère",
+    73: "Neige modérée",
     75: "Neige forte",
     77: "Grains de neige",
-    80: "Averses lÃ©gÃ¨res",
-    81: "Averses modÃ©rÃ©es",
+    80: "Averses légères",
+    81: "Averses modérées",
     82: "Averses violentes",
-    85: "Averses de neige lÃ©gÃ¨res",
+    85: "Averses de neige légères",
     86: "Averses de neige fortes",
     95: "Orage",
-    96: "Orage avec grÃªle lÃ©gÃ¨re",
-    99: "Orage avec grÃªle forte"
+    96: "Orage avec grêle légère",
+    99: "Orage avec grêle forte"
 };
 
 function getWeatherIcon(code, isDay = true) {
     const icons = {
-        0: isDay ? "â˜€ï¸" : "ðŸŒ™",
-        1: isDay ? "ðŸŒ¤ï¸" : "ðŸŒ™",
-        2: "â›…",
-        3: "â˜ï¸",
-        45: "ðŸŒ«ï¸",
-        48: "ðŸŒ«ï¸",
-        51: "ðŸŒ¦ï¸",
-        53: "ðŸŒ¦ï¸",
-        55: "ðŸŒ¦ï¸",
-        56: "ðŸŒ¦ï¸",
-        57: "ðŸŒ¦ï¸",
-        61: "ðŸŒ§ï¸",
-        63: "ðŸŒ§ï¸",
-        65: "ðŸŒ§ï¸",
-        66: "ðŸŒ§ï¸",
-        67: "ðŸŒ§ï¸",
-        71: "ðŸŒ¨ï¸",
-        73: "ðŸŒ¨ï¸",
-        75: "ðŸŒ¨ï¸",
-        77: "ðŸŒ¨ï¸",
-        80: "ðŸŒ¦ï¸",
-        81: "ðŸŒ¦ï¸",
-        82: "ðŸŒ¦ï¸",
-        85: "ðŸŒ¨ï¸",
-        86: "ðŸŒ¨ï¸",
-        95: "â›ˆï¸",
-        96: "â›ˆï¸",
-        99: "â›ˆï¸"
+        0: isDay ? "☀️" : "🌙",
+        1: isDay ? "🌤️" : "🌙",
+        2: "⛅",
+        3: "☁️",
+        45: "🌫️",
+        48: "🌫️",
+        51: "🌦️",
+        53: "🌦️",
+        55: "🌦️",
+        56: "🌦️",
+        57: "🌦️",
+        61: "🌧️",
+        63: "🌧️",
+        65: "🌧️",
+        66: "🌧️",
+        67: "🌧️",
+        71: "🌨️",
+        73: "🌨️",
+        75: "🌨️",
+        77: "🌨️",
+        80: "🌦️",
+        81: "🌦️",
+        82: "🌦️",
+        85: "🌨️",
+        86: "🌨️",
+        95: "⛈️",
+        96: "⛈️",
+        99: "⛈️"
     };
-    return icons[code] || "ðŸŒ";
+    return icons[code] || "🌍";
 }
 
 /* ========================================
@@ -83,10 +83,10 @@ function getWeatherIcon(code, isDay = true) {
 function initMap() {
     map = L.map('map').setView([lat, lng], 10);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: 'Â© OpenStreetMap contributors'
+        attribution: '© OpenStreetMap contributors'
     }).addTo(map);
     marker = L.marker([lat, lng]).addTo(map)
-        .bindPopup(`ðŸ“ Position: ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+        .bindPopup(`📍 Position: ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
         .openPopup();
     map.on('click', function(e) {
         tempSelectedPosition = {
@@ -100,7 +100,7 @@ function initMap() {
 }
 
 /* ========================================
-   GESTION UNIFIÃ‰E DES POSITIONS
+   GESTION UNIFIÉE DES POSITIONS
 ======================================== */
 
 function showPositionValidation() {
@@ -132,23 +132,23 @@ function getCurrentLocation() {
                 map.setView([lat, lng], 12);
                 if (marker) map.removeLayer(marker);
                 marker = L.marker([lat, lng]).addTo(map)
-                    .bindPopup(`ðŸ“ Votre position: ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+                    .bindPopup(`📍 Votre position: ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
                     .openPopup();
                 updateLocationDisplay();
                 hidePositionValidation();
             },
             function(error) {
-                alert('Erreur de gÃ©olocalisation: ' + error.message);
+                alert('Erreur de géolocalisation: ' + error.message);
             }
         );
     } else {
-        alert('La gÃ©olocalisation n\'est pas supportÃ©e par ce navigateur');
+        alert('La géolocalisation n\'est pas supportée par ce navigateur');
     }
 }
 
 function validatePosition() {
     if (!tempSelectedPosition) {
-        alert('Aucune position sÃ©lectionnÃ©e Ã  valider');
+        alert('Aucune position sélectionnée à valider');
         return;
     }
     
@@ -157,14 +157,14 @@ function validatePosition() {
     map.setView([lat, lng], 12);
     if (marker) map.removeLayer(marker);
     marker = L.marker([lat, lng]).addTo(map)
-        .bindPopup(`âœ… POSITION VALIDÃ‰E<br>ðŸ“ ${tempSelectedPosition.name}<br>CoordonnÃ©es: ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
+        .bindPopup(`✅ POSITION VALIDÉE<br>📍 ${tempSelectedPosition.name}<br>Coordonnées: ${lat.toFixed(4)}, ${lng.toFixed(4)}`)
         .openPopup();
     updateLocationDisplay();
     hidePositionValidation();
     document.getElementById('manualLat').value = '';
     document.getElementById('manualLng').value = '';
     document.getElementById('addressSearch').value = '';
-    showSuccessMessage('âœ… Position validÃ©e avec succÃ¨s !');
+    showSuccessMessage('✅ Position validée avec succès !');
     getWeatherData();
 }
 
@@ -172,7 +172,7 @@ function updateMapPreview(latitude, longitude, displayName) {
     map.setView([latitude, longitude], 12);
     if (marker) map.removeLayer(marker);
     marker = L.marker([latitude, longitude]).addTo(map)
-        .bindPopup(`ðŸ” APERÃ‡U<br>ðŸ“ ${displayName}<br>CoordonnÃ©es: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}<br><small>Cliquez sur "DÃ©finir cette position" pour confirmer</small>`)
+        .bindPopup(`🔍 APERÇU<br>📍 ${displayName}<br>Coordonnées: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}<br><small>Cliquez sur "Définir cette position" pour confirmer</small>`)
         .openPopup();
 }
 
@@ -197,7 +197,7 @@ function showSuccessMessage(message) {
 async function searchAddress() {
     const address = document.getElementById('addressSearch').value.trim();
     if (!address) {
-        alert('Veuillez entrer une adresse Ã  rechercher');
+        alert('Veuillez entrer une adresse à rechercher');
         return;
     }
     try {
@@ -220,7 +220,7 @@ function displayAddressResults(results) {
     if (!resultsDiv || !listDiv) return;
     
     if (results.length === 0) {
-        listDiv.innerHTML = '<p style="color: #d63031;">Aucune adresse trouvÃ©e. Essayez une recherche diffÃ©rente.</p>';
+        listDiv.innerHTML = '<p style="color: #d63031;">Aucune adresse trouvée. Essayez une recherche différente.</p>';
         resultsDiv.style.display = 'block';
         return;
     }
@@ -233,9 +233,9 @@ function displayAddressResults(results) {
         cardDiv.style.cssText = 'cursor: pointer; margin: 10px 0;';
         
         cardDiv.innerHTML = `
-            <strong>ðŸ“ ${result.display_name}</strong>
+            <strong>📍 ${result.display_name}</strong>
             <p style="font-size: 0.9em; color: #636e72; margin: 5px 0;">
-                CoordonnÃ©es: ${parseFloat(result.lat).toFixed(4)}, ${parseFloat(result.lon).toFixed(4)}
+                Coordonnées: ${parseFloat(result.lat).toFixed(4)}, ${parseFloat(result.lon).toFixed(4)}
             </p>
         `;
         
@@ -264,15 +264,16 @@ function selectAddressResult(latitude, longitude, displayName) {
 }
 
 /* ========================================
-   ðŸ”§ FONCTION CORRIGÃ‰E : GÃ‰NÃ‰RATION VECTEUR PYTHON AVEC INTERPOLATION LINÃ‰AIRE
+   🔧 NOUVELLE FONCTION : GÉNÉRATION VECTEUR PYTHON
 ======================================== */
 
 function generatePythonVector() {
     if (!weatherData || !weatherData.hourly || !weatherData.hourly.temperature_2m) {
-        alert('âŒ Aucune donnÃ©e mÃ©tÃ©o disponible. RÃ©cupÃ©rez d\'abord les prÃ©visions.');
+        alert('❌ Aucune donnée météo disponible. Récupérez d\'abord les prévisions.');
         return;
     }
 
+    // Trouver l'index de départ (même logique que l'affichage)
     const now = new Date();
     let startIndex = 0;
     const currentTimeMs = now.getTime();
@@ -286,231 +287,66 @@ function generatePythonVector() {
         }
     }
 
-    // RÃ©cupÃ©rer 11 heures pour avoir des transitions entre 10 heures
-    const maxHours = Math.min(11, weatherData.hourly.temperature_2m.length - startIndex);
-    const temps = weatherData.hourly.temperature_2m.slice(startIndex, startIndex + maxHours);
-    
-    if (temps.length < 2) {
-        alert('âŒ Pas assez de donnÃ©es pour gÃ©nÃ©rer des transitions graduelles.');
-        return;
-    }
-
+    const temps = weatherData.hourly.temperature_2m.slice(startIndex, startIndex + 10); // 10 heures
     const vector = [];
-    const debugInfo = []; // Pour vÃ©rifier l'interpolation
     
-    // ðŸ”§ INTERPOLATION LINÃ‰AIRE CORRIGÃ‰E avec plus de prÃ©cision
-    for (let h = 0; h < Math.min(10, temps.length - 1); h++) {
-        const currentTemp = temps[h];
-        const nextTemp = temps[h + 1];
-        const tempDiff = nextTemp - currentTemp;
-        
-        // Stocker info de debug
-        debugInfo.push({
-            heure: h,
-            tempActuelle: currentTemp,
-            tempSuivante: nextTemp,
-            difference: tempDiff
-        });
-        
-        // GÃ©nÃ©rer 3600 valeurs interpolÃ©es pour cette heure
+    // Générer 3600 valeurs (1 par seconde) pour chaque heure
+    temps.forEach(temp => {
         for (let i = 0; i < 3600; i++) {
-            const progress = i / 3600; // 0 Ã  1 (progression dans l'heure)
-            
-            // ðŸ”§ CORRECTION : Utiliser plus de prÃ©cision avant l'arrondi
-            const interpolatedTemp = currentTemp + (tempDiff * progress);
-            
-            // Arrondir Ã  1 dÃ©cimale pour garder plus de nuances
-            vector.push(Math.round(interpolatedTemp * 10) / 10);
+            vector.push(Math.round(temp));
         }
-    }
-
-    // ðŸ”§ DEBUG : Afficher les premiers et derniers Ã©chantillons pour vÃ©rifier
-    console.log('ðŸ” VÃ©rification interpolation tempÃ©ratures:', {
-        infoTransitions: debugInfo,
-        premieres20Valeurs: vector.slice(0, 20),
-        valeursAutourHeure1: vector.slice(3580, 3620), // Autour de la transition 1Ã¨reâ†’2Ã¨me heure
-        dernieres20Valeurs: vector.slice(-20)
     });
 
     const pythonVectorString = `[${vector.join(', ')}]`;
     
+    // Copier dans le presse-papier
     navigator.clipboard.writeText(pythonVectorString).then(() => {
-        showSuccessMessage(`âœ… Vecteur Python avec interpolation linÃ©aire copiÃ© ! (${vector.length} valeurs - ${Math.min(10, temps.length - 1)} heures)`);
-        
-        // Afficher un rÃ©sumÃ© des transitions
-        let transitionSummary = "Transitions dÃ©tectÃ©es:\n";
-        debugInfo.forEach(info => {
-            transitionSummary += `Heure ${info.heure}: ${info.tempActuelle}Â°C â†’ ${info.tempSuivante}Â°C (${info.difference > 0 ? '+' : ''}${info.difference.toFixed(1)}Â°C)\n`;
+        showSuccessMessage(`✅ Vecteur Python copié ! (${vector.length} valeurs - ${temps.length} heures)`);
+        console.log('📊 Vecteur Python généré:', {
+            heures: temps.length,
+            valeursParHeure: 3600,
+            totalValeurs: vector.length,
+            temperaturesHoraires: temps,
+            premieresValeurs: vector.slice(0, 10),
+            dernieresValeurs: vector.slice(-10)
         });
-        console.log(transitionSummary);
-        
     }).catch(err => {
         console.error('Erreur copie presse-papier:', err);
-        showVectorInTextArea(pythonVectorString, 'tempÃ©ratures avec interpolation linÃ©aire');
+        showVectorInTextArea(pythonVectorString);
     });
 }
 
-
-
-/* ========================================
-   ðŸ”§ FONCTION CORRIGÃ‰E : GÃ‰NÃ‰RATION VECTEUR PYTHON FLUX SOLAIRES AVEC INTERPOLATION
-======================================== */
-
-function generateSolarFluxVector() {
-    if (!weatherData || !weatherData.hourly) {
-        alert('âŒ Aucune donnÃ©e mÃ©tÃ©o disponible. RÃ©cupÃ©rez d\'abord les prÃ©visions.');
-        return;
+function showVectorInTextArea(vectorString) {
+    const existingTextArea = document.getElementById('pythonVectorOutput');
+    if (existingTextArea) {
+        existingTextArea.remove();
     }
 
-    // ðŸ”§ RÃ‰CUPÃ‰RATION EXACTE DES MÃŠMES PARAMÃˆTRES QUE LE GRAPHIQUE
-    const orientationSelect = document.getElementById('wallOrientation');
-    const customAzimuth = document.getElementById('customAzimuth');
-    const wallTilt = parseFloat(document.getElementById('wallTilt').value) || 90;
-    const albedo = parseFloat(document.getElementById('albedo').value) || 0.2;
-    const windowHeight = parseFloat(document.getElementById('windowHeight').value) || 0;
+    const textArea = document.createElement('textarea');
+    textArea.id = 'pythonVectorOutput';
+    textArea.value = vectorString;
+    textArea.style.cssText = `
+        width: 100%; 
+        height: 100px; 
+        margin: 10px 0; 
+        font-family: monospace; 
+        font-size: 12px;
+        border: 2px solid #00b894;
+        border-radius: 5px;
+        padding: 10px;
+    `;
+    textArea.readOnly = true;
 
-    if (!orientationSelect) {
-        alert('âŒ Veuillez d\'abord configurer les paramÃ¨tres solaires.');
-        return;
+    const container = document.querySelector('.hourly-forecast') || document.querySelector('.input-group');
+    if (container) {
+        container.appendChild(textArea);
+        textArea.select();
+        showSuccessMessage('📋 Vecteur affiché ci-dessous - Sélectionnez et copiez manuellement');
     }
-
-    let surfaceAzimuth;
-    if (orientationSelect.value === 'custom') {
-        surfaceAzimuth = parseFloat(customAzimuth.value);
-        if (isNaN(surfaceAzimuth)) {
-            alert('âŒ Veuillez entrer un azimuth personnalisÃ© valide.');
-            return;
-        }
-    } else {
-        surfaceAzimuth = orientationToAzimuth(orientationSelect.value);
-    }
-
-    // ðŸ”§ MÃŠME LOGIQUE D'INDEX QUE LE GRAPHIQUE
-    const now = new Date();
-    let startIndex = 0;
-    
-    for (let i = 0; i < weatherData.hourly.time.length; i++) {
-        const weatherTime = new Date(weatherData.hourly.time[i]);
-        if (weatherTime.getTime() >= (now.getTime() - 30 * 60 * 1000)) {
-            startIndex = i;
-            break;
-        }
-    }
-
-    const solarFluxes = [];
-    const debugComparison = []; // Pour comparer avec le graphique
-    
-    // ðŸ”§ CALCULS IDENTIQUES AU GRAPHIQUE
-    const maxHours = Math.min(11, weatherData.hourly.time.length - startIndex);
-    for (let i = 0; i < maxHours; i++) {
-        const dataIndex = startIndex + i;
-        const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
-        
-        // MÃŠMES calculs que dans calculateSolarRadiation()
-        const GHIh = weatherData.hourly.shortwave_radiation ? 
-            weatherData.hourly.shortwave_radiation[dataIndex] : 800;
-        const DNIh = weatherData.hourly.direct_radiation ? 
-            weatherData.hourly.direct_radiation[dataIndex] : 900;
-        const DHIh = weatherData.hourly.diffuse_radiation ? 
-            weatherData.hourly.diffuse_radiation[dataIndex] : 100;
-        
-        const solarPos = calculateSolarPosition(lat, lng, weatherTime);
-        const aoi = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPos.zenith, solarPos.azimuth);
-        
-        let directOnWall = 0;
-        if (aoi < 90) {
-            directOnWall = DNIh * Math.max(0, cosd(aoi));
-        }
-        
-        const diffuseOnWall = DHIh * (1 + cosd(wallTilt)) / 2;
-        const reduction = windowHeight <= 2 ? 1 : Math.exp(-0.2 * (windowHeight - 2));
-        const reflectedOnWall = GHIh * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
-        
-        const totalFlux = directOnWall + diffuseOnWall + reflectedOnWall;
-        const roundedFlux = Math.round(totalFlux);
-        solarFluxes.push(roundedFlux);
-        
-        // Debug pour comparaison
-        debugComparison.push({
-            heure: i,
-            timestamp: weatherData.hourly.time[dataIndex],
-            GHI: GHIh,
-            DNI: DNIh,
-            DHI: DHIh,
-            direct: directOnWall.toFixed(1),
-            diffuse: diffuseOnWall.toFixed(1),
-            reflected: reflectedOnWall.toFixed(1),
-            total: totalFlux.toFixed(1),
-            totalArrondi: roundedFlux
-        });
-    }
-
-    if (solarFluxes.length < 2) {
-        alert('âŒ Pas assez de donnÃ©es pour gÃ©nÃ©rer des transitions graduelles.');
-        return;
-    }
-
-    // ðŸ”§ INTERPOLATION LINÃ‰AIRE avec debug
-    const vector = [];
-    const transitionDebug = [];
-    
-    for (let h = 0; h < Math.min(10, solarFluxes.length - 1); h++) {
-        const currentFlux = solarFluxes[h];
-        const nextFlux = solarFluxes[h + 1];
-        const fluxDiff = nextFlux - currentFlux;
-        
-        transitionDebug.push({
-            heure: h,
-            fluxActuel: currentFlux,
-            fluxSuivant: nextFlux,
-            difference: fluxDiff
-        });
-        
-        for (let i = 0; i < 3600; i++) {
-            const progress = i / 3600;
-            const interpolatedFlux = currentFlux + (fluxDiff * progress);
-            vector.push(Math.round(interpolatedFlux * 10) / 10); // 1 dÃ©cimale de prÃ©cision
-        }
-    }
-
-    // ðŸ”§ DEBUG COMPLET
-    console.log('â˜€ï¸ Debug flux solaires - Comparaison graphique vs vecteur:', {
-        parametres: {
-            orientation: surfaceAzimuth + 'Â°',
-            inclinaison: wallTilt + 'Â°',
-            albedo: albedo,
-            hauteur: windowHeight + 'm'
-        },
-        indexDemarrage: startIndex,
-        calculsPourGraphique: debugComparison,
-        transitionsInterpolation: transitionDebug,
-        premieres20Valeurs: vector.slice(0, 20),
-        valeursAutourTransition: vector.slice(3580, 3620),
-        dernieres20Valeurs: vector.slice(-20)
-    });
-
-    const pythonVectorString = `[${vector.join(', ')}]`;
-    
-    navigator.clipboard.writeText(pythonVectorString).then(() => {
-        showSuccessMessage(`âœ… Vecteur Python flux solaires avec interpolation synchronisÃ©e copiÃ© ! (${vector.length} valeurs)`);
-        
-        // Afficher rÃ©sumÃ© pour vÃ©rification
-        let summary = "ðŸ” RÃ©sumÃ© pour vÃ©rification:\n";
-        debugComparison.slice(0, 10).forEach((calc, idx) => {
-            summary += `${calc.timestamp.slice(11, 16)}: ${calc.totalArrondi}W/mÂ² (graphique) \n`;
-        });
-        console.log(summary);
-        
-    }).catch(err => {
-        console.error('Erreur copie presse-papier:', err);
-        showVectorInTextArea(pythonVectorString, 'flux solaires synchronisÃ©s');
-    });
 }
 
-
-
 /* ========================================
-   RÃ‰CUPÃ‰RATION DES DONNÃ‰ES MÃ‰TÃ‰O (OPEN-METEO CORRIGÃ‰)
+   RÉCUPÉRATION DES DONNÉES MÉTÉO (OPEN-METEO CORRIGÉ)
 ======================================== */
 
 async function getWeatherData() {
@@ -520,7 +356,7 @@ async function getWeatherData() {
             loadingIndicator.style.display = 'block';
         }
         
-        // ðŸ”§ REQUÃŠTE OPEN-METEO OPTIMISÃ‰E
+        // 🔧 REQUÊTE OPEN-METEO OPTIMISÉE
         const response = await fetch(
             `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,shortwave_radiation,direct_radiation,diffuse_radiation&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,is_day,shortwave_radiation,direct_radiation,diffuse_radiation&timezone=auto&forecast_hours=48`
         );
@@ -528,12 +364,12 @@ async function getWeatherData() {
         if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
         weatherData = await response.json();
         
-        console.log('ðŸ” DonnÃ©es mÃ©tÃ©o Open-Meteo rÃ©cupÃ©rÃ©es:', weatherData);
+        console.log('🔍 Données météo Open-Meteo récupérées:', weatherData);
         displayHourlyForecast();
         
     } catch (error) {
-        console.error('Erreur lors de la rÃ©cupÃ©ration des donnÃ©es mÃ©tÃ©o:', error);
-        alert('Erreur lors de la rÃ©cupÃ©ration des donnÃ©es mÃ©tÃ©o: ' + error.message);
+        console.error('Erreur lors de la récupération des données météo:', error);
+        alert('Erreur lors de la récupération des données météo: ' + error.message);
     } finally {
         const loadingIndicator = document.getElementById('loadingIndicator');
         if (loadingIndicator) {
@@ -543,7 +379,7 @@ async function getWeatherData() {
 }
 
 /* ========================================
-   AFFICHAGE DES PRÃ‰VISIONS HORAIRES (CORRIGÃ‰ FUSEAUX HORAIRES)
+   AFFICHAGE DES PRÉVISIONS HORAIRES (CORRIGÉ FUSEAUX HORAIRES)
 ======================================== */
 
 function displayHourlyForecast() {
@@ -556,7 +392,7 @@ function displayHourlyForecast() {
     const targetTimezone = weatherData.timezone || 'UTC';
     const now = new Date();
     
-    // ðŸ”§ CORRECTION : Logique fiable pour trouver l'index de dÃ©part
+    // 🔧 CORRECTION : Logique fiable pour trouver l'index de départ
     let startIndex = 0;
     const currentTimeMs = now.getTime();
     
@@ -569,7 +405,7 @@ function displayHourlyForecast() {
         }
     }
     
-    console.log(`ðŸ• Index de dÃ©part: ${startIndex}, Total heures: ${hourly.time.length}`);
+    console.log(`🕐 Index de départ: ${startIndex}, Total heures: ${hourly.time.length}`);
     
     const nowInTargetTz = new Intl.DateTimeFormat('fr-FR', {
         timeZone: targetTimezone,
@@ -590,37 +426,37 @@ function displayHourlyForecast() {
     
     let forecastHTML = `
         <div class="hourly-forecast">
-            <h3>â° PRÃ‰VISIONS 10 PROCHAINES HEURES (${targetTimezone}) - Open-Meteo</h3>
+            <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${targetTimezone}) - Open-Meteo</h3>
             <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
-                ðŸ• Maintenant Ã  ${targetTimezone} : ${nowInTargetTz}
-                <br>ðŸ” Index dÃ©marrage : ${startIndex}
-                <br>ðŸ“Š Total heures API : ${hourly.time.length}
-                <br>ðŸ“ Position : ${lat.toFixed(4)}, ${lng.toFixed(4)}
+                🕐 Maintenant à ${targetTimezone} : ${nowInTargetTz}
+                <br>🔍 Index démarrage : ${startIndex}
+                <br>📊 Total heures API : ${hourly.time.length}
+                <br>📍 Position : ${lat.toFixed(4)}, ${lng.toFixed(4)}
             </div>
             <div style="margin: 15px 0;">
                 <button onclick="generatePythonVector()" style="background: #00b894; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;">
-                   ðŸ Copier Vecteur Python (TempÃ©ratures/seconde - Interpolation LinÃ©aire)
-               </button>
-               <small style="display: block; margin-top: 5px; color: #636e72;">
-                   GÃ©nÃ¨re un vecteur avec transitions graduelles entre les tempÃ©ratures horaires (36,000 valeurs avec interpolation linÃ©aire)
-               </small>
+                    🐍 Copier Vecteur Python (Températures/seconde)
+                </button>
+                <small style="display: block; margin-top: 5px; color: #636e72;">
+                    Génère un vecteur avec les températures pour chaque seconde des 10 prochaines heures (36,000 valeurs)
+                </small>
             </div>
             <div class="hourly-grid">
     `;
     
-    // ðŸ”§ CORRECTION PRINCIPALE : Affichage correct des heures sans double conversion
+    // 🔧 CORRECTION PRINCIPALE : Affichage correct des heures sans double conversion
     for (let i = 0; i < 10 && (startIndex + i) < hourly.time.length; i++) {
         const dataIndex = startIndex + i;
         
-        // âš¡ SOLUTION : Parser directement la chaÃ®ne ISO de l'API
+        // ⚡ SOLUTION : Parser directement la chaîne ISO de l'API
         const timeString = hourly.time[dataIndex]; // Ex: "2025-07-25T09:00"
         
-        // Extraire l'heure et la date directement de la chaÃ®ne ISO
+        // Extraire l'heure et la date directement de la chaîne ISO
         const [datePart, timePart] = timeString.split('T');
         const [year, month, day] = datePart.split('-');
         const [hour, minute] = timePart.split(':');
         
-        // Afficher l'heure directement depuis la chaÃ®ne ISO (pas de conversion)
+        // Afficher l'heure directement depuis la chaîne ISO (pas de conversion)
         const timeStr = `${hour}:${minute}`;
         const dateStr = `${day}/${month}`;
         
@@ -639,14 +475,14 @@ function displayHourlyForecast() {
             <div class="hourly-item">
                 <div class="hourly-time">${timeStr}<br><small>${dateStr}</small></div>
                 <div class="hourly-icon">${icon}</div>
-                <div class="hourly-temp">${temp}Â°C</div>
+                <div class="hourly-temp">${temp}°C</div>
                 <div class="hourly-details">
-                    <div>ðŸŒ¡ï¸ Ressenti: ${tempFeel}Â°C</div>
-                    <div>ðŸ’§ HumiditÃ©: ${humidity}%</div>
-                    <div>ðŸŒ§ï¸ Pluie: ${precipitation}mm</div>
-                    <div>ðŸ’¨ Vent: ${windSpeed}km/h</div>
-                    <div>ðŸ§­ Dir: ${windDir}Â°</div>
-                    <div>ðŸŒŠ Pression: ${pressure}hPa</div>
+                    <div>🌡️ Ressenti: ${tempFeel}°C</div>
+                    <div>💧 Humidité: ${humidity}%</div>
+                    <div>🌧️ Pluie: ${precipitation}mm</div>
+                    <div>💨 Vent: ${windSpeed}km/h</div>
+                    <div>🧭 Dir: ${windDir}°</div>
+                    <div>🌊 Pression: ${pressure}hPa</div>
                 </div>
             </div>
         `;
@@ -655,8 +491,8 @@ function displayHourlyForecast() {
     forecastHTML += `
             </div>
             <div class="info" style="margin-top: 20px; background: rgba(255,255,255,0.2); color: white; border: none;">
-                ðŸ’¡ <strong>Conseil rideaux:</strong> Consultez ces prÃ©visions pour planifier l'ouverture/fermeture de vos rideaux selon la tempÃ©rature et l'ensoleillement attendus.
-                <br>ðŸ <strong>Vecteur Python:</strong> Cliquez sur le bouton ci-dessus pour copier un vecteur avec les tempÃ©ratures de chaque seconde.
+                💡 <strong>Conseil rideaux:</strong> Consultez ces prévisions pour planifier l'ouverture/fermeture de vos rideaux selon la température et l'ensoleillement attendus.
+                <br>🐍 <strong>Vecteur Python:</strong> Cliquez sur le bouton ci-dessus pour copier un vecteur avec les températures de chaque seconde.
             </div>
         </div>
     `;
@@ -665,7 +501,7 @@ function displayHourlyForecast() {
 }
 
 /* ========================================
-   FONCTIONS MATHÃ‰MATIQUES SOLAIRES
+   FONCTIONS MATHÉMATIQUES SOLAIRES
 ======================================== */
 
 function sind(degrees) { return Math.sin(degrees * Math.PI / 180); }
@@ -755,7 +591,7 @@ function toggleCustomAzimuth() {
 
 function calculateSolarRadiation() {
     if (!weatherData) {
-        alert('Veuillez d\'abord rÃ©cupÃ©rer les donnÃ©es mÃ©tÃ©orologiques');
+        alert('Veuillez d\'abord récupérer les données météorologiques');
         return;
     }
 
@@ -774,7 +610,7 @@ function calculateSolarRadiation() {
     if (orientationSelect.value === 'custom') {
         surfaceAzimuth = parseFloat(customAzimuth.value);
         if (isNaN(surfaceAzimuth)) {
-            alert('Veuillez entrer un azimuth personnalisÃ© valide');
+            alert('Veuillez entrer un azimuth personnalisé valide');
             return;
         }
     } else {
@@ -815,63 +651,54 @@ function calculateSolarRadiation() {
     }
 
     const orientationText = orientationSelect.value === 'custom' ? 
-        `${surfaceAzimuth}Â° (personnalisÃ©)` : 
+        `${surfaceAzimuth}° (personnalisé)` : 
         `${orientationSelect.options[orientationSelect.selectedIndex].text}`;
     
     const timezoneInfo = weatherData.timezone ? `(${weatherData.timezone})` : '(UTC)';
     
     resultsDiv.innerHTML = `
         <div class="solar-current">
-            <h3>â˜€ï¸ CALCUL DU RAYONNEMENT SOLAIRE ${timezoneInfo}</h3>
+            <h3>☀️ CALCUL DU RAYONNEMENT SOLAIRE ${timezoneInfo}</h3>
             <div class="weather-grid">
-                <div><strong>ðŸ“ Position:</strong> ${lat.toFixed(4)}Â°, ${lng.toFixed(4)}Â°</div>
-                <div><strong>ðŸ• Fuseau horaire:</strong> ${weatherData.timezone || 'UTC'}</div>
-                <div><strong>ðŸ§­ Orientation mur:</strong> ${orientationText}</div>
-                <div><strong>ðŸ“ Inclinaison mur:</strong> ${wallTilt}Â°</div>
-                <div><strong>ðŸŒ AlbÃ©do sol:</strong> ${albedo}</div>
-                <div><strong>ðŸ¢ Hauteur fenÃªtre:</strong> ${windowHeight} m</div>
+                <div><strong>📍 Position:</strong> ${lat.toFixed(4)}°, ${lng.toFixed(4)}°</div>
+                <div><strong>🕐 Fuseau horaire:</strong> ${weatherData.timezone || 'UTC'}</div>
+                <div><strong>🧭 Orientation mur:</strong> ${orientationText}</div>
+                <div><strong>📐 Inclinaison mur:</strong> ${wallTilt}°</div>
+                <div><strong>🌍 Albédo sol:</strong> ${albedo}</div>
+                <div><strong>🏢 Hauteur fenêtre:</strong> ${windowHeight} m</div>
             </div>
         </div>
         <div class="info" style="margin: 20px 0;">
-            <h3>ðŸ”¬ EXPLICATIONS DU CALCUL</h3>
+            <h3>🔬 EXPLICATIONS DU CALCUL</h3>
             <ul style="text-align: left; margin: 10px 0;">
-                <li><strong>Rayonnement direct :</strong> LumiÃ¨re directe du soleil</li>
-                <li><strong>Rayonnement diffus :</strong> LumiÃ¨re diffusÃ©e par l'atmosphÃ¨re et les nuages</li>
-                <li><strong>Rayonnement rÃ©flÃ©chi :</strong> LumiÃ¨re rÃ©flÃ©chie par le sol (diminuÃ© selon la hauteur de la fenÃªtre)</li>
+                <li><strong>Rayonnement direct :</strong> Lumière directe du soleil</li>
+                <li><strong>Rayonnement diffus :</strong> Lumière diffusée par l'atmosphère et les nuages</li>
+                <li><strong>Rayonnement réfléchi :</strong> Lumière réfléchie par le sol (diminué selon la hauteur de la fenêtre)</li>
             </ul>
         </div>
-        <h3>ðŸ§® DÃ‰TAIL DES CALCULS</h3>
+        <h3>🧮 DÉTAIL DES CALCULS</h3>
         <div class="weather-grid">
             <div class="solar-card">
-                <h4>1ï¸âƒ£ Rayonnement Direct</h4>
-                <p><strong>RÃ©sultat :</strong> <span style="color: #e17055;">${directOnWall.toFixed(1)} W/mÂ²</span></p>
+                <h4>1️⃣ Rayonnement Direct</h4>
+                <p><strong>Résultat :</strong> <span style="color: #e17055;">${directOnWall.toFixed(1)} W/m²</span></p>
             </div>
             <div class="solar-card">
-                <h4>2ï¸âƒ£ Rayonnement Diffus</h4>
-                <p><strong>RÃ©sultat :</strong> <span style="color: #e17055;">${diffuseOnWall.toFixed(1)} W/mÂ²</span></p>
+                <h4>2️⃣ Rayonnement Diffus</h4>
+                <p><strong>Résultat :</strong> <span style="color: #e17055;">${diffuseOnWall.toFixed(1)} W/m²</span></p>
             </div>
             <div class="solar-card">
-                <h4>3ï¸âƒ£ Rayonnement RÃ©flÃ©chi</h4>
-                <p><strong>Facteur de rÃ©duction hauteur :</strong> ${reduction.toFixed(2)} (pour ${windowHeight} m)</p>
-                <p><strong>RÃ©sultat :</strong> <span style="color: #e17055;">${reflectedOnWall.toFixed(1)} W/mÂ²</span></p>
+                <h4>3️⃣ Rayonnement Réfléchi</h4>
+                <p><strong>Facteur de réduction hauteur :</strong> ${reduction.toFixed(2)} (pour ${windowHeight} m)</p>
+                <p><strong>Résultat :</strong> <span style="color: #e17055;">${reflectedOnWall.toFixed(1)} W/m²</span></p>
             </div>
         </div>
         <div class="solar-current" style="margin-top: 20px;">
-            <h3>ðŸŽ¯ RÃ‰SULTAT FINAL</h3>
+            <h3>🎯 RÉSULTAT FINAL</h3>
             <div class="weather-grid">
                 <div class="solar-card" style="border-left-color: #00b894; background: #d1f2eb;">
-                    <h4>ðŸ“Š SOMME TOTALE</h4>
-                    <p><strong>TOTAL :</strong> <span style="font-size: 1.5em; color: #00b894;">${totalOnWall.toFixed(1)} W/mÂ²</span></p>
+                    <h4>📊 SOMME TOTALE</h4>
+                    <p><strong>TOTAL :</strong> <span style="font-size: 1.5em; color: #00b894;">${totalOnWall.toFixed(1)} W/m²</span></p>
                 </div>
-            </div>
-            <div style="margin: 15px 0; text-align: center;">
-                <button onclick="generateSolarFluxVector()" style="background: #fd7900; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-right: 10px;">
-                   â˜€ï¸ Copier Vecteur Python (Flux Solaires/seconde - Interpolation LinÃ©aire)
-                </button>
-                <small style="display: block; margin-top: 5px; color: #636e72;">
-                    GÃ©nÃ¨re un vecteur avec transitions graduelles entre les flux solaires horaires (36,000 valeurs en W/mÂ² avec interpolation linÃ©aire)
-                </small>
-
             </div>
         </div>
     `;
@@ -885,7 +712,7 @@ function calculateSolarRadiation() {
             const now = new Date();
             let startIndex = 0;
             
-            // MÃªme logique pour trouver l'index de dÃ©part
+            // Même logique pour trouver l'index de départ
             for (let i = 0; i < weatherData.hourly.time.length; i++) {
                 const weatherTime = new Date(weatherData.hourly.time[i]);
                 if (weatherTime.getTime() >= (now.getTime() - 30 * 60 * 1000)) {
@@ -899,7 +726,7 @@ function calculateSolarRadiation() {
                 
                 if (dataIndex >= weatherData.hourly.time.length) break;
                 
-                // ðŸ”§ CORRECTION : MÃªme traitement des heures que l'affichage
+                // 🔧 CORRECTION : Même traitement des heures que l'affichage
                 const timeString = weatherData.hourly.time[dataIndex];
                 const [datePart, timePart] = timeString.split('T');
                 const [hour, minute] = timePart.split(':');
@@ -936,7 +763,7 @@ function calculateSolarRadiation() {
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: "Rayonnement solaire sur la fenÃªtre (W/mÂ²)",
+                        label: "Rayonnement solaire sur la fenêtre (W/m²)",
                         data: data,
                         fill: true,
                         backgroundColor: "rgba(255, 206, 86, 0.2)",
@@ -953,12 +780,12 @@ function calculateSolarRadiation() {
                         legend: { display: true },
                         title: {
                             display: true,
-                            text: `Ã‰volution du rayonnement solaire - ${targetTimezone}`
+                            text: `Évolution du rayonnement solaire - ${targetTimezone}`
                         }
                     },
                     scales: {
                         y: {
-                            title: { display: true, text: "W/mÂ²" },
+                            title: { display: true, text: "W/m²" },
                             beginAtZero: true
                         },
                         x: {
@@ -976,7 +803,7 @@ function calculateSolarRadiation() {
 ======================================== */
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('ðŸš€ Initialisation de l\'application avec Open-Meteo...');
+    console.log('🚀 Initialisation de l\'application avec Open-Meteo...');
     
     initMap();
     updateLocationDisplay();
@@ -1044,6 +871,5 @@ document.addEventListener('DOMContentLoaded', function() {
     
     getWeatherData();
     
-    console.log('âœ… Application initialisÃ©e avec succÃ¨s !');
+    console.log('✅ Application initialisée avec succès !');
 });
-
