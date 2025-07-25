@@ -229,17 +229,21 @@ function displayAddressResults(results) {
         const cardDiv = document.createElement('div');
         cardDiv.className = 'weather-card';
         cardDiv.style.cssText = 'cursor: pointer; margin: 10px 0;';
+        
         cardDiv.innerHTML = `
             <strong>📍 ${result.display_name}</strong>
             <p style="font-size: 0.9em; color: #636e72; margin: 5px 0;">
                 Coordonnées: ${parseFloat(result.lat).toFixed(4)}, ${parseFloat(result.lon).toFixed(4)}
             </p>
         `;
+        
         cardDiv.addEventListener('click', function() {
             selectAddressResult(result.lat, result.lon, result.display_name);
         });
+        
         listDiv.appendChild(cardDiv);
     });
+    
     resultsDiv.style.display = 'block';
 }
 
@@ -258,7 +262,17 @@ function selectAddressResult(latitude, longitude, displayName) {
 }
 
 /* ========================================
-   RÉCUPÉRATION DES DONNÉES MÉTÉO
+   FONCTION UTILITAIRE POUR DATES
+======================================== */
+
+function getEndDate(startDate, daysToAdd) {
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + daysToAdd);
+    return date.toISOString().split('T')[0];
+}
+
+/* ========================================
+   RÉCUPÉRATION DES DONNÉES MÉTÉO (CORRIGÉE)
 ======================================== */
 
 async function getWeatherData() {
@@ -267,12 +281,48 @@ async function getWeatherData() {
         if (loadingIndicator) {
             loadingIndicator.style.display = 'block';
         }
-        const response = await fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,shortwave_radiation,direct_radiation,diffuse_radiation&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,is_day,shortwave_radiation,direct_radiation,diffuse_radiation&timezone=auto&forecast_hours=48`
-        );
+        
+        // 🔧 CORRECTION : Forcer explicitement l'heure de début
+        const now = new Date();
+        const startDate = now.toISOString().split('T')[0]; // Format YYYY-MM-DD
+        const startHour = now.getHours(); // Heure actuelle
+        
+        // URL corrigée avec paramètres explicites
+        const apiUrl = `https://api.open-meteo.com/v1/forecast` +
+            `?latitude=${lat}&longitude=${lng}` +
+            `&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,shortwave_radiation,direct_radiation,diffuse_radiation` +
+            `&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,is_day,shortwave_radiation,direct_radiation,diffuse_radiation` +
+            `&start_date=${startDate}` +
+            `&end_date=${getEndDate(startDate, 2)}` +
+            `&start_hour=${startHour}` +
+            `&timezone=auto`;
+        
+        console.log('🔍 URL API utilisée:', apiUrl);
+        
+        const response = await fetch(apiUrl);
         if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
+        
         weatherData = await response.json();
+        
+        // 🔧 VÉRIFICATION : S'assurer que les données commencent bien maintenant
+        if (weatherData.hourly && weatherData.hourly.time.length > 0) {
+            const firstHour = new Date(weatherData.hourly.time[0]);
+            const currentHour = new Date();
+            currentHour.setMinutes(0, 0, 0); // Arrondir à l'heure
+            
+            console.log('📅 Première heure API:', firstHour.toLocaleString());
+            console.log('🕐 Heure actuelle arrondie:', currentHour.toLocaleString());
+            
+            // Si l'écart est trop grand, alerter l'utilisateur
+            const hoursDiff = Math.abs(firstHour - currentHour) / (1000 * 60 * 60);
+            if (hoursDiff > 2) {
+                console.warn(`⚠️ Écart de ${hoursDiff.toFixed(1)} heures détecté`);
+                alert(`⚠️ Attention: L'API renvoie des prévisions avec un décalage de ${hoursDiff.toFixed(1)} heures. Cela peut être temporaire.`);
+            }
+        }
+        
         displayHourlyForecast();
+        
     } catch (error) {
         console.error('Erreur lors de la récupération des données météo:', error);
         alert('Erreur lors de la récupération des données météo: ' + error.message);
@@ -285,54 +335,23 @@ async function getWeatherData() {
 }
 
 /* ========================================
-   AFFICHAGE DES PRÉVISIONS HORAIRES (LOGIQUE FIABLE CORRIGÉE)
+   AFFICHAGE DES PRÉVISIONS HORAIRES (CORRIGÉE)
 ======================================== */
+
 function displayHourlyForecast() {
     if (!weatherData || !weatherData.hourly) return;
-
+    
     const hourly = weatherData.hourly;
     const forecastDiv = document.getElementById('hourlyForecast');
     if (!forecastDiv) return;
-
+    
     const targetTimezone = weatherData.timezone || 'UTC';
-
-    // -------- LOGIQUE ROBUSTE DU DÉBUT DE PRÉVISION -------
-    // Obtenir la date/heure locale du fuseau cible, arrondie à l'heure précédente
-    const now = new Date();
-    function getHourStartInTimezone(date, timeZone) {
-        const fmtDate = new Intl.DateTimeFormat('fr-FR', {
-            timeZone: timeZone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            hour12: false
-        }).formatToParts(date);
-        let year, month, day, hour;
-        fmtDate.forEach(({type, value}) => {
-            if (type === 'year') year = value;
-            else if (type === 'month') month = value;
-            else if (type === 'day') day = value;
-            else if (type === 'hour') hour = value;
-        });
-        return new Date(`${year}-${month}-${day}T${hour}:00:00`);
-    }
-    const nowRounded = getHourStartInTimezone(now, targetTimezone);
-
-    // Trouver la première prévision >= à l'heure actuelle arrondie
+    
+    // 🔧 LOGIQUE SIMPLE : Commencer à l'index 0 puisque l'API renvoie maintenant les bonnes heures
     let startIndex = 0;
-    for (let i = 0; i < hourly.time.length; i++) {
-        const weatherTime = new Date(hourly.time[i]);
-        if (weatherTime.getTime() >= nowRounded.getTime()) {
-            startIndex = i;
-            break;
-        }
-    }
-    // Fallback de sécurité
-    if (startIndex === 0) {
-        startIndex = Math.max(0, hourly.time.length - 10);
-    }
-
+    const maxHours = Math.min(10, hourly.time.length);
+    
+    const now = new Date();
     const nowInTargetTz = new Intl.DateTimeFormat('fr-FR', {
         timeZone: targetTimezone,
         hour: '2-digit',
@@ -340,52 +359,53 @@ function displayHourlyForecast() {
         day: '2-digit',
         month: '2-digit'
     }).format(now);
-
-    const firstForecastTime = startIndex < hourly.time.length ? 
+    
+    const firstForecastTime = hourly.time.length > 0 ? 
         new Intl.DateTimeFormat('fr-FR', {
             timeZone: targetTimezone,
             hour: '2-digit',
             minute: '2-digit',
             day: '2-digit',
             month: '2-digit'
-        }).format(new Date(hourly.time[startIndex])) : 'N/A';
-
+        }).format(new Date(hourly.time[0])) : 'N/A';
+    
     let forecastHTML = `
         <div class="hourly-forecast">
-            <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${targetTimezone})</h3>
+            <h3>⏰ PRÉVISIONS ${maxHours} PROCHAINES HEURES (${targetTimezone})</h3>
             <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
                 🕐 Maintenant à ${targetTimezone} : ${nowInTargetTz}
                 <br>📅 Première prévision : ${firstForecastTime}
-                <br>🔍 Index démarrage : ${startIndex}
                 <br>📊 Total heures API : ${hourly.time.length}
             </div>
             <div class="hourly-grid">
     `;
-
-    for (let i = 0; i < 10 && (startIndex + i) < hourly.time.length; i++) {
-        const dataIndex = startIndex + i;
-        const weatherTime = new Date(hourly.time[dataIndex]);
+    
+    for (let i = 0; i < maxHours; i++) {
+        const weatherTime = new Date(hourly.time[i]);
+        
         const timeStr = new Intl.DateTimeFormat('fr-FR', {
             timeZone: targetTimezone,
             hour: '2-digit',
             minute: '2-digit'
         }).format(weatherTime);
+        
         const dateStr = new Intl.DateTimeFormat('fr-FR', {
             timeZone: targetTimezone,
             day: '2-digit',
             month: '2-digit'
         }).format(weatherTime);
-        const temp = Math.round(hourly.temperature_2m[dataIndex]);
-        const tempFeel = Math.round(hourly.apparent_temperature[dataIndex]);
-        const humidity = hourly.relative_humidity_2m[dataIndex];
-        const precipitation = hourly.precipitation[dataIndex];
-        const windSpeed = Math.round(hourly.wind_speed_10m[dataIndex]);
-        const windDir = hourly.wind_direction_10m[dataIndex];
-        const pressure = Math.round(hourly.surface_pressure[dataIndex]);
-        const weatherCode = hourly.weather_code[dataIndex];
-        const isDay = hourly.is_day[dataIndex] === 1;
+        
+        const temp = Math.round(hourly.temperature_2m[i]);
+        const tempFeel = Math.round(hourly.apparent_temperature[i]);
+        const humidity = hourly.relative_humidity_2m[i];
+        const precipitation = hourly.precipitation[i];
+        const windSpeed = Math.round(hourly.wind_speed_10m[i]);
+        const windDir = hourly.wind_direction_10m[i];
+        const pressure = Math.round(hourly.surface_pressure[i]);
+        const weatherCode = hourly.weather_code[i];
+        const isDay = hourly.is_day[i] === 1;
         const icon = getWeatherIcon(weatherCode, isDay);
-
+        
         forecastHTML += `
             <div class="hourly-item">
                 <div class="hourly-time">${timeStr}<br><small>${dateStr}</small></div>
@@ -402,7 +422,7 @@ function displayHourlyForecast() {
             </div>
         `;
     }
-
+    
     forecastHTML += `
             </div>
             <div class="info" style="margin-top: 20px; background: rgba(255,255,255,0.2); color: white; border: none;">
@@ -410,7 +430,7 @@ function displayHourlyForecast() {
             </div>
         </div>
     `;
-
+    
     forecastDiv.innerHTML = forecastHTML;
 }
 
@@ -426,17 +446,288 @@ function acosd(value) { return Math.acos(value) * 180 / Math.PI; }
 function atan2d(y, x) { return Math.atan2(y, x) * 180 / Math.PI; }
 
 /* ========================================
-   CALCULS DE POSITION SOLAIRE & RAYONNEMENT
-(restant inchangés, voir code initial)
+   CALCULS DE POSITION SOLAIRE
 ======================================== */
+
+function calculateSolarPosition(latitude, longitude, date) {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hour = date.getHours();
+    const minute = date.getMinutes();
+    const second = date.getSeconds();
+    let a = Math.floor((14 - month) / 12);
+    let y = year - a;
+    let m = month + 12 * a - 3;
+    let jd = day + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) + 1721119.5;
+    jd += (hour + minute / 60 + second / 3600) / 24;
+    const n = jd - 2451545.0;
+    const L = (280.460 + 0.9856474 * n) % 360;
+    const g = ((357.528 + 0.9856003 * n) % 360) * Math.PI / 180;
+    const lambda = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * Math.PI / 180;
+    const delta = Math.asin(Math.sin(23.439 * Math.PI / 180) * Math.sin(lambda));
+    const E = 4 * (L * Math.PI / 180 - 0.0057183 - Math.atan2(Math.tan(lambda), Math.cos(23.439 * Math.PI / 180)));
+    const TSV = (hour + minute / 60) + longitude / 15 + E / 60;
+    const H = 15 * (TSV - 12) * Math.PI / 180;
+    const phi = latitude * Math.PI / 180;
+    const elevation = Math.asin(Math.sin(phi) * Math.sin(delta) + Math.cos(phi) * Math.cos(delta) * Math.cos(H));
+    let azimuth = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(delta) * Math.cos(phi));
+    azimuth = (azimuth * 180 / Math.PI + 180) % 360;
+    return {
+        elevation: elevation * 180 / Math.PI,
+        azimuth: azimuth,
+        zenith: 90 - elevation * 180 / Math.PI
+    };
+}
+
+/* ========================================
+   CALCULS DE RAYONNEMENT SOLAIRE
+======================================== */
+
+function orientationToAzimuth(orientation) {
+    const orientations = {
+        'nord': 0,
+        'nord-est': 45,
+        'est': 90,
+        'sud-est': 135,
+        'sud': 180,
+        'sud-ouest': 225,
+        'ouest': 270,
+        'nord-ouest': 315
+    };
+    return orientations[orientation] || 180;
+}
+
+function calculateAngleOfIncidence(surfaceTilt, surfaceAzimuth, solarZenith, solarAzimuth) {
+    const tilt = surfaceTilt * Math.PI / 180;
+    const surfAz = surfaceAzimuth * Math.PI / 180;
+    const zenith = solarZenith * Math.PI / 180;
+    const solAz = solarAzimuth * Math.PI / 180;
+    const cosIncidence = Math.sin(zenith) * Math.sin(tilt) * Math.cos(solAz - surfAz) + Math.cos(zenith) * Math.cos(tilt);
+    return Math.acos(Math.max(-1, Math.min(1, cosIncidence))) * 180 / Math.PI;
+}
+
+function toggleCustomAzimuth() {
+    const orientationSelect = document.getElementById('wallOrientation');
+    const customAzimuthDiv = document.getElementById('customAzimuthDiv');
+    if (orientationSelect && customAzimuthDiv) {
+        if (orientationSelect.value === 'custom') {
+            customAzimuthDiv.style.display = 'block';
+        } else {
+            customAzimuthDiv.style.display = 'none';
+        }
+    }
+}
+
+/* ========================================
+   CALCUL PRINCIPAL DU RAYONNEMENT SOLAIRE
+======================================== */
+
+function calculateSolarRadiation() {
+    if (!weatherData) {
+        alert('Veuillez d\'abord récupérer les données météorologiques');
+        return;
+    }
+
+    const orientationSelect = document.getElementById('wallOrientation');
+    const customAzimuth = document.getElementById('customAzimuth');
+    const wallTilt = parseFloat(document.getElementById('wallTilt').value);
+    const albedo = parseFloat(document.getElementById('albedo').value);
+    const windowHeight = parseFloat(document.getElementById('windowHeight').value) || 0;
+
+    if (!orientationSelect) {
+        console.error('Element wallOrientation not found');
+        return;
+    }
+
+    let surfaceAzimuth;
+    if (orientationSelect.value === 'custom') {
+        surfaceAzimuth = parseFloat(customAzimuth.value);
+        if (isNaN(surfaceAzimuth)) {
+            alert('Veuillez entrer un azimuth personnalisé valide');
+            return;
+        }
+    } else {
+        surfaceAzimuth = orientationToAzimuth(orientationSelect.value);
+    }
+
+    const current = weatherData.current;
+    const GHI = current.shortwave_radiation || 800;
+    const DNI = current.direct_radiation || 900;
+    const DHI = current.diffuse_radiation || 100;
+
+    const now = new Date();
+    const solarPos = calculateSolarPosition(lat, lng, now);
+
+    const aoi = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPos.zenith, solarPos.azimuth);
+
+    let directOnWall = 0;
+    if (aoi < 90) {
+        directOnWall = DNI * Math.max(0, cosd(aoi));
+    }
+
+    const diffuseOnWall = DHI * (1 + cosd(wallTilt)) / 2;
+
+    function reflectedReductionFactor(height) {
+        if (height <= 2) return 1;
+        return Math.exp(-0.2 * (height - 2));
+    }
+    const reduction = reflectedReductionFactor(windowHeight);
+
+    const reflectedOnWall = GHI * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
+
+    const totalOnWall = directOnWall + diffuseOnWall + reflectedOnWall;
+
+    const resultsDiv = document.getElementById('solarResults');
+    if (!resultsDiv) {
+        console.error('Element solarResults not found');
+        return;
+    }
+
+    const orientationText = orientationSelect.value === 'custom' ? 
+        `${surfaceAzimuth}° (personnalisé)` : 
+        `${orientationSelect.options[orientationSelect.selectedIndex].text}`;
+    
+    const timezoneInfo = weatherData.timezone ? `(${weatherData.timezone})` : '(UTC)';
+    
+    resultsDiv.innerHTML = `
+        <div class="solar-current">
+            <h3>☀️ CALCUL DU RAYONNEMENT SOLAIRE ${timezoneInfo}</h3>
+            <div class="weather-grid">
+                <div><strong>📍 Position:</strong> ${lat.toFixed(4)}°, ${lng.toFixed(4)}°</div>
+                <div><strong>🕐 Fuseau horaire:</strong> ${weatherData.timezone || 'UTC'}</div>
+                <div><strong>🧭 Orientation mur:</strong> ${orientationText}</div>
+                <div><strong>📐 Inclinaison mur:</strong> ${wallTilt}°</div>
+                <div><strong>🌍 Albédo sol:</strong> ${albedo}</div>
+                <div><strong>🏢 Hauteur fenêtre:</strong> ${windowHeight} m</div>
+            </div>
+        </div>
+        <div class="info" style="margin: 20px 0;">
+            <h3>🔬 EXPLICATIONS DU CALCUL</h3>
+            <ul style="text-align: left; margin: 10px 0;">
+                <li><strong>Rayonnement direct :</strong> Lumière directe du soleil</li>
+                <li><strong>Rayonnement diffus :</strong> Lumière diffusée par l'atmosphère et les nuages</li>
+                <li><strong>Rayonnement réfléchi :</strong> Lumière réfléchie par le sol (diminué selon la hauteur de la fenêtre)</li>
+            </ul>
+        </div>
+        <h3>🧮 DÉTAIL DES CALCULS</h3>
+        <div class="weather-grid">
+            <div class="solar-card">
+                <h4>1️⃣ Rayonnement Direct</h4>
+                <p><strong>Résultat :</strong> <span style="color: #e17055;">${directOnWall.toFixed(1)} W/m²</span></p>
+            </div>
+            <div class="solar-card">
+                <h4>2️⃣ Rayonnement Diffus</h4>
+                <p><strong>Résultat :</strong> <span style="color: #e17055;">${diffuseOnWall.toFixed(1)} W/m²</span></p>
+            </div>
+            <div class="solar-card">
+                <h4>3️⃣ Rayonnement Réfléchi</h4>
+                <p><strong>Facteur de réduction hauteur :</strong> ${reduction.toFixed(2)} (pour ${windowHeight} m)</p>
+                <p><strong>Résultat :</strong> <span style="color: #e17055;">${reflectedOnWall.toFixed(1)} W/m²</span></p>
+            </div>
+        </div>
+        <div class="solar-current" style="margin-top: 20px;">
+            <h3>🎯 RÉSULTAT FINAL</h3>
+            <div class="weather-grid">
+                <div class="solar-card" style="border-left-color: #00b894; background: #d1f2eb;">
+                    <h4>📊 SOMME TOTALE</h4>
+                    <p><strong>TOTAL :</strong> <span style="font-size: 1.5em; color: #00b894;">${totalOnWall.toFixed(1)} W/m²</span></p>
+                </div>
+            </div>
+        </div>
+    `;
+
+    if (weatherData.hourly && weatherData.hourly.time) {
+        const canvasElement = document.getElementById('solarIrradianceChart');
+        if (canvasElement) {
+            const labels = [];
+            const data = [];
+            const targetTimezone = weatherData.timezone || 'UTC';
+            const maxHours = Math.min(10, weatherData.hourly.time.length);
+            
+            for (let i = 0; i < maxHours; i++) {
+                const weatherTime = new Date(weatherData.hourly.time[i]);
+                
+                const hourStr = new Intl.DateTimeFormat('fr-FR', {
+                    timeZone: targetTimezone,
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }).format(weatherTime);
+                
+                const GHIh = weatherData.hourly.shortwave_radiation ? 
+                    weatherData.hourly.shortwave_radiation[i] : GHI;
+                const DNIh = weatherData.hourly.direct_radiation ? 
+                    weatherData.hourly.direct_radiation[i] : DNI;
+                const DHIh = weatherData.hourly.diffuse_radiation ? 
+                    weatherData.hourly.diffuse_radiation[i] : DHI;
+                
+                const solarPh = calculateSolarPosition(lat, lng, weatherTime);
+                const aoiH = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPh.zenith, solarPh.azimuth);
+                
+                let directH = 0;
+                if (aoiH < 90) directH = DNIh * Math.max(0, cosd(aoiH));
+                const diffuseH = DHIh * (1 + cosd(wallTilt)) / 2;
+                const reflectedH = GHIh * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
+                const totalH = directH + diffuseH + reflectedH;
+                
+                labels.push(hourStr);
+                data.push(Math.round(totalH));
+            }
+            
+            const ctx = canvasElement.getContext('2d');
+            if (solarChartInstance) {
+                solarChartInstance.destroy();
+            }
+            solarChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: "Rayonnement solaire sur la fenêtre (W/m²)",
+                        data: data,
+                        fill: true,
+                        backgroundColor: "rgba(255, 206, 86, 0.2)",
+                        borderColor: "#fdcb6e",
+                        borderWidth: 3,
+                        pointBackgroundColor: "#e17055",
+                        pointRadius: 5,
+                        tension: 0.35
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: true },
+                        title: {
+                            display: true,
+                            text: `Évolution du rayonnement solaire - ${targetTimezone}`
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: { display: true, text: "W/m²" },
+                            beginAtZero: true
+                        },
+                        x: {
+                            title: { display: true, text: "Heure locale" }
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
 
 /* ========================================
    INITIALISATION AU CHARGEMENT DE LA PAGE
 ======================================== */
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Initialisation de l\'application...');
+    
     initMap();
     updateLocationDisplay();
+    
     const getCurrentLocationBtn = document.getElementById('getCurrentLocation');
     const getWeatherBtn = document.getElementById('getWeather');
     const calculateSolarBtn = document.getElementById('calculateSolar');
@@ -446,12 +737,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const manualLatInput = document.getElementById('manualLat');
     const manualLngInput = document.getElementById('manualLng');
     const addressSearchInput = document.getElementById('addressSearch');
-    if (getCurrentLocationBtn) getCurrentLocationBtn.addEventListener('click', getCurrentLocation);
-    if (getWeatherBtn) getWeatherBtn.addEventListener('click', getWeatherData);
-    if (calculateSolarBtn) calculateSolarBtn.addEventListener('click', calculateSolarRadiation);
-    if (wallOrientationSelect) wallOrientationSelect.addEventListener('change', toggleCustomAzimuth);
-    if (validatePositionBtn) validatePositionBtn.addEventListener('click', validatePosition);
-    if (searchAddressBtn) searchAddressBtn.addEventListener('click', searchAddress);
+    
+    if (getCurrentLocationBtn) {
+        getCurrentLocationBtn.addEventListener('click', getCurrentLocation);
+    }
+    if (getWeatherBtn) {
+        getWeatherBtn.addEventListener('click', getWeatherData);
+    }
+    if (calculateSolarBtn) {
+        calculateSolarBtn.addEventListener('click', calculateSolarRadiation);
+    }
+    if (wallOrientationSelect) {
+        wallOrientationSelect.addEventListener('change', toggleCustomAzimuth);
+    }
+    if (validatePositionBtn) {
+        validatePositionBtn.addEventListener('click', validatePosition);
+    }
+    if (searchAddressBtn) {
+        searchAddressBtn.addEventListener('click', searchAddress);
+    }
+    
     if (manualLatInput) {
         manualLatInput.addEventListener('input', function() {
             const latValue = parseFloat(this.value);
@@ -463,6 +768,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
     if (manualLngInput) {
         manualLngInput.addEventListener('input', function() {
             const latValue = parseFloat(manualLatInput.value);
@@ -474,10 +780,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
     if (addressSearchInput) {
         addressSearchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') searchAddress();
+            if (e.key === 'Enter') {
+                searchAddress();
+            }
         });
     }
+    
     getWeatherData();
+    
+    console.log('✅ Application initialisée avec succès !');
 });
+
