@@ -1166,7 +1166,7 @@ document.getElementById('copyTableBtn').addEventListener('click', function() {
     let titles = ['Date'];
     for (let i = 1; i <= 10; i++) titles.push("T°" + i);
     for (let i = 1; i <= 10; i++) titles.push("Flux" + i);
-    csv.push(titles.join("\t")); // séparateur tab
+    csv.push(titles.join("\t"));
     // lignes
     all_saves.forEach(save => {
         let line = [new Date(save.date).toLocaleString()];
@@ -1178,9 +1178,8 @@ document.getElementById('copyTableBtn').addEventListener('click', function() {
     navigator.clipboard.writeText(text).then(() => {
         alert("✅ Tableau copié ! Colle-le dans Excel directement.");
     });
+}); // Pas de parenthèses ni accolades après !
 
-
-});
 
 
 
