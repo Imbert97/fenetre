@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.1.2";
+const CODE_VERSION = "v1.1.3 test tableau";
 
 /* ========================================
    VARIABLES GLOBALES
@@ -1080,12 +1080,99 @@ async function retrieveAndSaveForecast() {
             temperatures: temp,
             flux_solaires: flux
         };
-        localStorage.setItem('weather_forecast_last', JSON.stringify(dataToSave));
-        console.log("✅ Prévisions et flux sauvés :", dataToSave);
+        addToSauvegardes(dataToSave);
     } catch (e) {
         console.error("Erreur de récupération automatique:", e);
     }
 }
+   // LISTE des sauvegardes (persistantes) pour affichage en tableau
+let all_saves = [];
+
+// Charge l'historique depuis le localStorage au démarrage
+function loadSavesFromStorage() {
+    const json = localStorage.getItem('weather_forecast_history');
+    if (json) {
+        all_saves = JSON.parse(json);
+    } else {
+        all_saves = [];
+    }
+}
+loadSavesFromStorage();
+
+// Pour afficher ou mettre à jour le tableau sur la page
+function updateSauvegardesTable() {
+    const tableBody = document.getElementById('tableBody');
+    const tableHeader = document.getElementById('tableHeader');
+    if (!tableBody || !tableHeader) return;
+    tableBody.innerHTML = "";
+    tableHeader.innerHTML = "";
+
+    if (all_saves.length === 0) {
+        tableBody.innerHTML = "<tr><td colspan='999'>Aucune sauvegarde enregistrée.</td></tr>";
+        return;
+    }
+    // Génère les titres (date, températures, flux)
+    const dernier = all_saves[all_saves.length - 1];
+    let headers = ['Date sauvegarde'];
+    // On suppose 10 valeurs
+    for (let i = 0; i < 10; i++) {
+        headers.push("T°" + (i + 1));
+    }
+    for (let i = 0; i < 10; i++) {
+        headers.push("Flux" + (i + 1));
+    }
+    headers.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        tableHeader.appendChild(th);
+    });
+    // Remplit les lignes
+    all_saves.forEach(save => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${new Date(save.date).toLocaleString()}</td>` +
+            save.temperatures.map(t => `<td>${t}</td>`).join('') +
+            save.flux_solaires.map(f => `<td>${f}</td>`).join('');
+        tableBody.appendChild(tr);
+    });
+}
+
+// Ajoute une sauvegarde dans la liste + stockage + rafraîchit tableau
+function addToSauvegardes(dataToSave) {
+    all_saves.push(dataToSave);
+    localStorage.setItem('weather_forecast_history', JSON.stringify(all_saves));
+    updateSauvegardesTable();
+    document.getElementById('sauvegardesTableInfo').textContent = `Dernière sauvegarde : ${new Date(dataToSave.date).toLocaleTimeString()}`;
+}
+
+// Réactive l'affichage au rechargement de page
+document.addEventListener('DOMContentLoaded', updateSauvegardesTable);
+
+// Ajoute fonction pour bouton "Copier tableau"
+document.getElementById('copyTableBtn').addEventListener('click', function() {
+    if (all_saves.length === 0) {
+        alert("Aucune donnée à copier !");
+        return;
+    }
+    let csv = [];
+    // titres
+    let titles = ['Date'];
+    for (let i = 1; i <= 10; i++) titles.push("T°" + i);
+    for (let i = 1; i <= 10; i++) titles.push("Flux" + i);
+    csv.push(titles.join("\t")); // séparateur tab
+    // lignes
+    all_saves.forEach(save => {
+        let line = [new Date(save.date).toLocaleString()];
+        line = line.concat(save.temperatures, save.flux_solaires);
+        csv.push(line.join("\t"));
+    });
+    let text = csv.join("\n");
+    // copie dans le presse-papiers
+    navigator.clipboard.writeText(text).then(() => {
+        alert("✅ Tableau copié ! Colle-le dans Excel directement.");
+    });
+});
+
+
 
 });
 
