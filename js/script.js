@@ -1138,17 +1138,19 @@ function updateSauvegardesTable() {
 
 // Ajoute une sauvegarde dans la liste + stockage + rafraîchit tableau
 function addToSauvegardes(dataToSave) {
-   // Empêche le doublon même minute
+    // Empêche le doublon même minute
     if (all_saves.length > 0) {
         let last = all_saves[all_saves.length - 1];
         let lastMinute = (new Date(last.date)).toISOString().slice(0,16); // YYYY-MM-DDTHH:MM
         let newMinute = (new Date(dataToSave.date)).toISOString().slice(0,16);
         if (lastMinute === newMinute) return; // Ne pas ajouter de doublon
+    }
     all_saves.push(dataToSave);
     localStorage.setItem('weather_forecast_history', JSON.stringify(all_saves));
     updateSauvegardesTable();
     document.getElementById('sauvegardesTableInfo').textContent = `Dernière sauvegarde : ${new Date(dataToSave.date).toLocaleTimeString()}`;
 }
+
 
 // Réactive l'affichage au rechargement de page
 document.addEventListener('DOMContentLoaded', updateSauvegardesTable);
