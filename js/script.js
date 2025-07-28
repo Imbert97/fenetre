@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.1.3 test tableau";
+const CODE_VERSION = "v1.1.4 test tableau";
 
 /* ========================================
    VARIABLES GLOBALES
@@ -998,17 +998,17 @@ document.getElementById('autoRetrieveBtn').addEventListener('click', function() 
     retrieveAndSaveForecast();
     // Lance toutes les heures pile (3600000 ms)
     autoInterval = setInterval(function() {
-        // Arrête à 20h inclus (local)
+        // Arrête à 20h (optionnel, laisse si tu veux stopper le soir)
         let now = new Date();
-        let currentHour = now.getHours();
-        if (currentHour >= 20) {
+        if (now.getHours() >= 20) {
             clearInterval(autoInterval);
             autoInterval = null;
             alert("Fin de la récupération automatique (heure >= 20h)");
             return;
         }
-        retrieveAndSaveForecast();
-    }, 60 * 60 * 1000);
+        retrieveAndSaveForecast(); // Nouvelle sauvegarde chaque minute
+    }, 60 * 1000); // Chaque minute
+
     alert("🌡️ Lancement de la récupération automatique (prévisions et sauvegarde chaque heure jusqu'à 20h)");
 });
 
@@ -1138,6 +1138,12 @@ function updateSauvegardesTable() {
 
 // Ajoute une sauvegarde dans la liste + stockage + rafraîchit tableau
 function addToSauvegardes(dataToSave) {
+   // Empêche le doublon même minute
+    if (all_saves.length > 0) {
+        let last = all_saves[all_saves.length - 1];
+        let lastMinute = (new Date(last.date)).toISOString().slice(0,16); // YYYY-MM-DDTHH:MM
+        let newMinute = (new Date(dataToSave.date)).toISOString().slice(0,16);
+        if (lastMinute === newMinute) return; // Ne pas ajouter de doublon
     all_saves.push(dataToSave);
     localStorage.setItem('weather_forecast_history', JSON.stringify(all_saves));
     updateSauvegardesTable();
