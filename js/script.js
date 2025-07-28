@@ -1176,8 +1176,6 @@ document.getElementById('copyTableBtn').addEventListener('click', function() {
     navigator.clipboard.writeText(text).then(() => {
         alert("✅ Tableau copié ! Colle-le dans Excel directement.");
     });
-});
-
 
 
 });
