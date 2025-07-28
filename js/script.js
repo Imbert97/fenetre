@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.1.1";
+const CODE_VERSION = "v1.1.2";
 
 /* ========================================
    VARIABLES GLOBALES
@@ -986,6 +986,107 @@ document.addEventListener('DOMContentLoaded', function() {
     getWeatherData();
     
     console.log('✅ Application initialisée avec succès !');
+
+   let autoInterval = null; // Pour conserver l'intervalle actif
+
+document.getElementById('autoRetrieveBtn').addEventListener('click', function() {
+    if (autoInterval) {
+        alert("La récupération automatique est déjà activée.");
+        return;
+    }
+    // Exécute tout de suite une fois au clic
+    retrieveAndSaveForecast();
+    // Lance toutes les heures pile (3600000 ms)
+    autoInterval = setInterval(function() {
+        // Arrête à 20h inclus (local)
+        let now = new Date();
+        let currentHour = now.getHours();
+        if (currentHour >= 20) {
+            clearInterval(autoInterval);
+            autoInterval = null;
+            alert("Fin de la récupération automatique (heure >= 20h)");
+            return;
+        }
+        retrieveAndSaveForecast();
+    }, 60 * 60 * 1000);
+    alert("🌡️ Lancement de la récupération automatique (prévisions et sauvegarde chaque heure jusqu'à 20h)");
+});
+
+async function retrieveAndSaveForecast() {
+    try {
+        await getWeatherData(); // récupère en asynchrone
+
+        if (!weatherData || !weatherData.hourly) {
+            console.error("❌ Données météo absentes.");
+            return;
+        }
+        const now = new Date();
+        let startIndex = 0;
+        for (let i = 0; i < weatherData.hourly.time.length; i++) {
+            const weatherTime = new Date(weatherData.hourly.time[i]);
+            if (weatherTime.getTime() >= (now.getTime() - 30 * 60 * 1000)) {
+                startIndex = i;
+                break;
+            }
+        }
+        // Températures sur 10h
+        const temp = weatherData.hourly.temperature_2m.slice(startIndex, startIndex + 10);
+        // Calcul des flux solaires sur 10h en utilisant les mêmes paramètres que l'utilisateur (interface)
+        let flux = [];
+        // Récupération des paramètres UI (ou valeurs par défaut si éléments non accessibles)
+        const orientationSelect = document.getElementById('wallOrientation');
+        const customAzimuthInput = document.getElementById('customAzimuth');
+        const wallTiltInput = document.getElementById('wallTilt');
+        const albedoInput = document.getElementById('albedo');
+        const windowHeightInput = document.getElementById('windowHeight');
+        let wallTilt = wallTiltInput ? parseFloat(wallTiltInput.value) : 90;
+        let albedo = albedoInput ? parseFloat(albedoInput.value) : 0.2;
+        let windowHeight = windowHeightInput ? parseFloat(windowHeightInput.value) : 0;
+        let surfaceAzimuth = 180;
+        if (orientationSelect) {
+            if (orientationSelect.value === 'custom' && customAzimuthInput) {
+                surfaceAzimuth = parseFloat(customAzimuthInput.value);
+                if (isNaN(surfaceAzimuth)) surfaceAzimuth = 180;
+            } else {
+                surfaceAzimuth = orientationToAzimuth(orientationSelect.value);
+            }
+        }
+        for (let h = 0; h < 10 && (startIndex + h) < weatherData.hourly.time.length; h++) {
+            const dataIndex = startIndex + h;
+            const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
+            // Données météos horaires ou fallback
+            const GHIh = weatherData.hourly.shortwave_radiation ?
+                weatherData.hourly.shortwave_radiation[dataIndex] : 800;
+            const DNIh = weatherData.hourly.direct_radiation ?
+                weatherData.hourly.direct_radiation[dataIndex] : 900;
+            const DHIh = weatherData.hourly.diffuse_radiation ?
+                weatherData.hourly.diffuse_radiation[dataIndex] : 100;
+            // Calcul solaire - fonctions déjà présentes dans ton script
+            const solarPh = calculateSolarPosition(lat, lng, weatherTime);
+            const aoiH = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPh.zenith, solarPh.azimuth);
+            let directOnWall = 0;
+            if (aoiH < 90) directOnWall = DNIh * Math.max(0, cosd(aoiH));
+            const diffuseOnWall = DHIh * (1 + cosd(wallTilt)) / 2;
+            // Facteur de réduction pour hauteur de fenêtre
+            const reduction = windowHeight <= 2 ? 1 : Math.exp(-0.2 * (windowHeight - 2));
+            const reflectedOnWall = GHIh * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
+            const totalOnWall = directOnWall + diffuseOnWall + reflectedOnWall;
+            flux.push(Math.round(totalOnWall * 10) / 10); // selon le style d’arrondi du reste du script
+        }
+
+        const dataToSave = {
+            date: now.toISOString(),
+            horaires: weatherData.hourly.time.slice(startIndex, startIndex + 10),
+            temperatures: temp,
+            flux_solaires: flux
+        };
+        localStorage.setItem('weather_forecast_last', JSON.stringify(dataToSave));
+        console.log("✅ Prévisions et flux sauvés :", dataToSave);
+    } catch (e) {
+        console.error("Erreur de récupération automatique:", e);
+    }
+}
+
 });
 
 
