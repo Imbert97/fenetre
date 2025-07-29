@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.1.6 test tableau";
+const CODE_VERSION = "v1.1.5 test tableau";
 
 /* ========================================
    VARIABLES GLOBALES
@@ -589,7 +589,8 @@ function calculateSolarPosition(latitude, longitude, date) {
     const g = ((357.528 + 0.9856003 * n) % 360) * Math.PI / 180;
     const lambda = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * Math.PI / 180;
     const delta = Math.asin(Math.sin(23.439 * Math.PI / 180) * Math.sin(lambda));
-    const E = 4 * (L * Math.PI / 180 - 0.0057183 - Math.atan2(Math.tan(lambda), Math.cos(23.439 * Math.PI / 180));
+    // Ligne corrigée: Ajout d'une parenthèse fermante après Math.cos(...)
+    const E = 4 * (L * Math.PI / 180 - 0.0057183 - Math.atan2(Math.tan(lambda), Math.cos(23.439 * Math.PI / 180)));
     const TSV = (hour + minute / 60) + longitude / 15 + E / 60;
     const H = 15 * (TSV - 12) * Math.PI / 180;
     const phi = latitude * Math.PI / 180;
