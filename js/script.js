@@ -1,5 +1,3 @@
-const CODE_VERSION = "v1.1.7 (Re-enabled Hourly Forecast & Chart Control)"; // Updated version
-
 const CODE_VERSION = "v1.1.5 test tableau";
 
 /* ========================================
