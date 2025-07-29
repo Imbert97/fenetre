@@ -1177,7 +1177,7 @@ document.getElementById('copyTableBtn').addEventListener('click', function() {
     // copie dans le presse-papiers
     navigator.clipboard.writeText(text).then(() => {
         alert("✅ Tableau copié ! Colle-le dans Excel directement.");
-    }
+    });
 }); 
 
 
