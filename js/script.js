@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.2.7"; // Updated version
+const CODE_VERSION = "v1.1.7 (Re-enabled Hourly Forecast & Chart Control)"; // Updated version
 
 /* ========================================
    VARIABLES GLOBALES
@@ -384,7 +384,6 @@ function calculateSolarPosition(latitude, longitude, date) {
     const L = (280.460 + 0.9856474 * n) % 360;
     const g = ((357.528 + 0.9856003 * n) % 360) * Math.PI / 180;
     const lambda = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * Math.PI / 180;
-    const delta = Math.asin(Math.sin(23.439 * Math.PI / 180) * Math.sin(lambda));
     const E = 4 * (L * Math.PI / 180 - 0.0057183 - Math.atan2(Math.tan(lambda), Math.cos(23.439 * Math.PI / 180)));
     const TSV = (hour + minute / 60) + longitude / 15 + E / 60;
     const H = 15 * (TSV - 12) * Math.PI / 180;
@@ -561,97 +560,98 @@ function calculateSolarRadiation() {
     `;
 
     // Chart logic for 10-hour solar irradiance
-    if (weatherData.hourly && weatherData.hourly.time) {
-        const canvasElement = document.getElementById('solarIrradianceChart');
-        if (canvasElement) {
-            const labels = [];
-            const data = [];
-            const targetTimezone = weatherData.timezone || 'UTC';
-            const now = new Date();
-            let startIndex = 0;
+    const canvasElement = document.getElementById('solarIrradianceChart');
+    if (canvasElement) {
+        // Show the chart canvas
+        canvasElement.style.display = 'block';
 
-            for (let i = 0; i < weatherData.hourly.time.length; i++) {
-                const weatherTime = new Date(weatherData.hourly.time[i]);
-                if (weatherTime.getTime() >= (now.getTime() - 30 * 60 * 1000)) { // Start from roughly current hour
-                    startIndex = i;
-                    break;
-                }
+        const labels = [];
+        const data = [];
+        const targetTimezone = weatherData.timezone || 'UTC';
+        const now = new Date();
+        let startIndex = 0;
+
+        for (let i = 0; i < weatherData.hourly.time.length; i++) {
+            const weatherTime = new Date(weatherData.hourly.time[i]);
+            if (weatherTime.getTime() >= (now.getTime() - 30 * 60 * 1000)) { // Start from roughly current hour
+                startIndex = i;
+                break;
             }
+        }
 
-            for (let i = 0; i < 10; i++) { // Display 10 hours for the chart
-                const dataIndex = startIndex + i;
+        for (let i = 0; i < 10; i++) { // Display 10 hours for the chart
+            const dataIndex = startIndex + i;
 
-                if (dataIndex >= weatherData.hourly.time.length) break;
+            if (dataIndex >= weatherData.hourly.time.length) break;
 
-                const timeString = weatherData.hourly.time[dataIndex];
-                const [datePart, timePart] = timeString.split('T');
-                const [hour, minute] = timePart.split(':');
-                const hourStr = `${hour}:${minute}`;
+            const timeString = weatherData.hourly.time[dataIndex];
+            const [datePart, timePart] = timeString.split('T');
+            const [hour, minute] = timePart.split(':');
+            const hourStr = `${hour}:${minute}`;
 
-                const weatherTime = new Date(data.hourly.time[dataIndex]);
+            const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
 
-                // Use hourly solar data for the chart calculation
-                const GHIh = weatherData.hourly.shortwave_radiation ?
-                    weatherData.hourly.shortwave_radiation[dataIndex] : 0;
-                const DNIh = weatherData.hourly.direct_radiation ?
-                    weatherData.hourly.direct_radiation[dataIndex] : 0;
-                const DHIh = weatherData.hourly.diffuse_radiation ?
-                    weatherData.hourly.diffuse_radiation[dataIndex] : 0;
+            // Use hourly solar data for the chart calculation
+            const GHIh = weatherData.hourly.shortwave_radiation ?
+                weatherData.hourly.shortwave_radiation[dataIndex] : 0;
+            const DNIh = weatherData.hourly.direct_radiation ?
+                weatherData.hourly.direct_radiation[dataIndex] : 0;
+            const DHIh = weatherData.hourly.diffuse_radiation ?
+                weatherData.hourly.diffuse_radiation[dataIndex] : 0;
 
-                const solarPh = calculateSolarPosition(lat, lng, weatherTime);
-                const aoiH = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPh.zenith, solarPh.azimuth);
+            const solarPh = calculateSolarPosition(lat, lng, weatherTime);
+            const aoiH = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPh.zenith, solarPh.azimuth);
 
-                let directH = 0;
-                if (aoiH < 90) directH = DNIh * Math.max(0, cosd(aoiH));
-                const diffuseH = DHIh * (1 + cosd(wallTilt)) / 2;
-                const reflectedH = GHIh * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
-                const totalH = directH + diffuseH + reflectedH;
+            let directH = 0;
+            if (aoiH < 90) directH = DNIh * Math.max(0, cosd(aoiH));
+            const diffuseH = DHIh * (1 + cosd(wallTilt)) / 2;
+            const reflectedH = GHIh * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
+            const totalH = directH + diffuseH + reflectedH;
 
-                labels.push(hourStr);
-                data.push(Math.round(totalH));
-            }
+            labels.push(hourStr);
+            data.push(Math.round(totalH));
+        }
 
-            const ctx = canvasElement.getContext('2d');
-            if (solarChartInstance) {
-                solarChartInstance.destroy();
-            }
-            solarChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: "Rayonnement solaire sur la fenêtre (W/m²)",
-                        data: data,
-                        fill: true,
-                        backgroundColor: "rgba(255, 206, 86, 0.2)",
-                        borderColor: "#fdcb6e",
-                        borderWidth: 3,
-                        pointBackgroundColor: "#e17055",
-                        pointRadius: 5,
-                        tension: 0.35
-                    }]
+        const ctx = canvasElement.getContext('2d');
+        if (solarChartInstance) {
+            solarChartInstance.destroy();
+        }
+        solarChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Rayonnement solaire sur la fenêtre (W/m²)",
+                    data: data,
+                    fill: true,
+                    backgroundColor: "rgba(255, 206, 86, 0.2)",
+                    borderColor: "#fdcb6e",
+                    borderWidth: 3,
+                    pointBackgroundColor: "#e17055",
+                    pointRadius: 5,
+                    tension: 0.35
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: true },
+                    title: {
+                        display: true,
+                        text: `Évolution du rayonnement solaire - ${targetTimezone}`
+                    }
                 },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { display: true },
-                        title: {
-                            display: true,
-                            text: `Évolution du rayonnement solaire - ${targetTimezone}`
-                        }
+                scales: {
+                    y: {
+                        title: { display: true, text: "W/m²" },
+                        beginAtZero: true
                     },
-                    scales: {
-                        y: {
-                            title: { display: true, text: "W/m²" },
-                            beginAtZero: true
-                        },
-                        x: {
-                            title: { display: true, text: "Heure locale" }
-                        }
+                    x: {
+                        title: { display: true, text: "Heure locale" }
                     }
                 }
-            });
-        }
+            }
+        });
     }
 }
 
@@ -733,6 +733,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     getWeatherData(); // Initial data fetch for basic display (including 10-hour forecast)
 
+    // Hide the chart initially
+    const solarIrradianceChart = document.getElementById('solarIrradianceChart');
+    if (solarIrradianceChart) {
+        solarIrradianceChart.style.display = 'none';
+    }
+
     console.log('✅ Application initialisée avec succès !');
 
     const autoRetrieveMessageElement = document.getElementById('autoRetrieveMessage');
@@ -771,6 +777,64 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+
+    let all_saves = [];
+
+    function loadSavesFromStorage() {
+        const json = localStorage.getItem('weather_forecast_history');
+        if (json) {
+            all_saves = JSON.parse(json);
+        } else {
+            all_saves = [];
+        }
+    }
+    loadSavesFromStorage();
+
+    function updateSauvegardesTable() {
+        const tableBody = document.querySelector('#sauvegardesTable #tableBody');
+        const tableHeader = document.querySelector('#sauvegardesTable #tableHeader');
+        if (!tableBody || !tableHeader) {
+            console.error('Table elements not found');
+            return;
+        }
+        tableBody.innerHTML = "";
+        tableHeader.innerHTML = "";
+
+        if (all_saves.length === 0) {
+            tableBody.innerHTML = "<tr><td colspan='3'>Aucune sauvegarde enregistrée.</td></tr>";
+            document.getElementById('sauvegardesTableInfo').textContent = "Aucune sauvegarde historique récente.";
+            return;
+        }
+
+        let headers = ['Date sauvegarde', 'T° Actuelle', 'Flux Actuel'];
+        headers.forEach(h => {
+            const th = document.createElement('th');
+            th.textContent = h;
+            tableHeader.appendChild(th);
+        });
+
+        all_saves.forEach(save => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${new Date(save.date).toLocaleString()}</td>` +
+                           `<td>${save.temperature_actuelle}</td>` +
+                           `<td>${save.flux_solaires_actuel}</td>`;
+            tableBody.appendChild(tr);
+        });
+
+        document.getElementById('sauvegardesTableInfo').textContent = `Dernière sauvegarde : ${new Date(all_saves[all_saves.length - 1].date).toLocaleTimeString()}`;
+    }
+
+    function addToSauvegardes(dataToSave) {
+        if (all_saves.length > 0) {
+            let last = all_saves[all_saves.length - 1];
+            let lastMinute = (new Date(last.date)).toISOString().slice(0,16);
+            let newMinute = (new Date(dataToSave.date)).toISOString().slice(0,16);
+            if (lastMinute === newMinute) return;
+        }
+        all_saves.push(dataToSave);
+        localStorage.setItem('weather_forecast_history', JSON.stringify(all_saves));
+        updateSauvegardesTable();
+    }
 
     async function retrieveAndSaveForecast() {
         try {
@@ -842,64 +906,6 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (e) {
             console.error("Erreur de récupération automatique:", e);
         }
-    }
-
-    let all_saves = [];
-
-    function loadSavesFromStorage() {
-        const json = localStorage.getItem('weather_forecast_history');
-        if (json) {
-            all_saves = JSON.parse(json);
-        } else {
-            all_saves = [];
-        }
-    }
-    loadSavesFromStorage();
-
-    function updateSauvegardesTable() {
-        const tableBody = document.querySelector('#sauvegardesTable #tableBody');
-        const tableHeader = document.querySelector('#sauvegardesTable #tableHeader');
-        if (!tableBody || !tableHeader) {
-            console.error('Table elements not found');
-            return;
-        }
-        tableBody.innerHTML = "";
-        tableHeader.innerHTML = "";
-
-        if (all_saves.length === 0) {
-            tableBody.innerHTML = "<tr><td colspan='3'>Aucune sauvegarde enregistrée.</td></tr>";
-            document.getElementById('sauvegardesTableInfo').textContent = "Aucune sauvegarde historique récente.";
-            return;
-        }
-
-        let headers = ['Date sauvegarde', 'T° Actuelle', 'Flux Actuel'];
-        headers.forEach(h => {
-            const th = document.createElement('th');
-            th.textContent = h;
-            tableHeader.appendChild(th);
-        });
-
-        all_saves.forEach(save => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${new Date(save.date).toLocaleString()}</td>` +
-                           `<td>${save.temperature_actuelle}</td>` +
-                           `<td>${save.flux_solaires_actuel}</td>`;
-            tableBody.appendChild(tr);
-        });
-
-        document.getElementById('sauvegardesTableInfo').textContent = `Dernière sauvegarde : ${new Date(all_saves[all_saves.length - 1].date).toLocaleTimeString()}`;
-    }
-
-    function addToSauvegardes(dataToSave) {
-        if (all_saves.length > 0) {
-            let last = all_saves[all_saves.length - 1];
-            let lastMinute = (new Date(last.date)).toISOString().slice(0,16);
-            let newMinute = (new Date(dataToSave.date)).toISOString().slice(0,16);
-            if (lastMinute === newMinute) return;
-        }
-        all_saves.push(dataToSave);
-        localStorage.setItem('weather_forecast_history', JSON.stringify(all_saves));
-        updateSauvegardesTable();
     }
 
     document.addEventListener('DOMContentLoaded', updateSauvegardesTable);
