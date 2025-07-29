@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.1.4 test tableau";
+const CODE_VERSION = "v1.1.5 test tableau";
 
 /* ========================================
    VARIABLES GLOBALES
@@ -1138,17 +1138,19 @@ function updateSauvegardesTable() {
 
 // Ajoute une sauvegarde dans la liste + stockage + rafraîchit tableau
 function addToSauvegardes(dataToSave) {
-   // Empêche le doublon même minute
+    // Empêche le doublon même minute
     if (all_saves.length > 0) {
         let last = all_saves[all_saves.length - 1];
         let lastMinute = (new Date(last.date)).toISOString().slice(0,16); // YYYY-MM-DDTHH:MM
         let newMinute = (new Date(dataToSave.date)).toISOString().slice(0,16);
         if (lastMinute === newMinute) return; // Ne pas ajouter de doublon
+    }
     all_saves.push(dataToSave);
     localStorage.setItem('weather_forecast_history', JSON.stringify(all_saves));
     updateSauvegardesTable();
     document.getElementById('sauvegardesTableInfo').textContent = `Dernière sauvegarde : ${new Date(dataToSave.date).toLocaleTimeString()}`;
 }
+
 
 // Réactive l'affichage au rechargement de page
 document.addEventListener('DOMContentLoaded', updateSauvegardesTable);
@@ -1164,7 +1166,7 @@ document.getElementById('copyTableBtn').addEventListener('click', function() {
     let titles = ['Date'];
     for (let i = 1; i <= 10; i++) titles.push("T°" + i);
     for (let i = 1; i <= 10; i++) titles.push("Flux" + i);
-    csv.push(titles.join("\t")); // séparateur tab
+    csv.push(titles.join("\t"));
     // lignes
     all_saves.forEach(save => {
         let line = [new Date(save.date).toLocaleString()];
@@ -1176,11 +1178,11 @@ document.getElementById('copyTableBtn').addEventListener('click', function() {
     navigator.clipboard.writeText(text).then(() => {
         alert("✅ Tableau copié ! Colle-le dans Excel directement.");
     });
-});
+}); 
 
 
 
-});
+
 
 
 
