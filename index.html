@@ -190,7 +190,30 @@
               </div>
               <div id="sauvegardesTableInfo" style="color:#00b894;margin-top:10px;font-size:0.85em;"></div>
             </div>
-
+            <div id="autoRetrieveStatus" style="margin-top: 20px; padding: 10px; border: 1px solid #00b894; border-radius: 5px; background-color: rgba(0, 184, 148, 0.1); color: #00b894;">
+                <h3>🚀 Suivi des prévisions interpolées</h3>
+                <p>Statut: <span id="autoRetrieveMessage">Inactif</span></p>
+                <p>Température actuelle interpolée: <span id="currentTempDisplay">N/A</span></p>
+                <p>Flux solaire actuel interpolé: <span id="currentFluxDisplay">N/A</span></p>
+            </div>
+            
+            <button id="autoRetrieveBtn" style="margin-top: 10px; background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Lancer la récupération automatique</button>
+            
+            <div style="margin-top: 30px;">
+                <h2>Historique des Sauvegardes</h2>
+                <p id="sauvegardesTableInfo">Aucune sauvegarde historique récente.</p>
+                <button id="copyTableBtn" style="background: #17a2b8; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-bottom: 10px;">Copier tout le tableau (vecteurs complets)</button>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr id="tableHeader">
+                                </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>            
             <h2>ℹ️ Informations</h2>
             <div class="weather-grid">
                 <div class="weather-card">
