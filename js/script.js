@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.2.1 (Simplified)"; // Updated version
+const CODE_VERSION = "v1.2.7"; // Updated version
 
 /* ========================================
    VARIABLES GLOBALES
@@ -267,6 +267,61 @@ function selectAddressResult(latitude, longitude, displayName) {
 }
 
 /* ========================================
+   AFFICHAGE DES PRÉVISIONS HORAIRES
+======================================== */
+
+function displayHourlyForecast(data) {
+    const hourlyForecastDiv = document.getElementById('hourlyForecast');
+    if (!hourlyForecastDiv) return;
+
+    if (!data || !data.hourly || !data.hourly.time || data.hourly.time.length === 0) {
+        hourlyForecastDiv.innerHTML = '<p style="color: #d63031;">Aucune donnée horaire disponible.</p>';
+        return;
+    }
+
+    let html = '<h3>Prévisions horaires (prochaines 10h)</h3><div class="hourly-grid">';
+    const now = new Date();
+    // Find the closest hour in the forecast to the current hour
+    let startIndex = 0;
+    for(let i = 0; i < data.hourly.time.length; i++) {
+        const forecastTime = new Date(data.hourly.time[i]);
+        // Consider forecasts starting from the current hour or the next full hour
+        if (forecastTime.getTime() >= (now.getTime() - 3600000)) { // Within the last hour
+             startIndex = i;
+             break;
+        }
+    }
+
+
+    for (let i = 0; i < 10; i++) { // Display 10 hours
+        const dataIndex = startIndex + i;
+        if (dataIndex >= data.hourly.time.length) break;
+
+        const time = new Date(data.hourly.time[dataIndex]);
+        const temperature = data.hourly.temperature_2m[dataIndex];
+        const weatherCode = data.hourly.weather_code[dataIndex];
+        const precipitation = data.hourly.precipitation[dataIndex];
+        const isDay = data.hourly.is_day[dataIndex] === 1;
+
+        const hourText = time.getHours().toString().padStart(2, '0') + ':00';
+        const weatherDescription = weatherCodes[weatherCode] || 'Inconnu';
+        const weatherIcon = getWeatherIcon(weatherCode, isDay);
+
+        html += `
+            <div class="hourly-card">
+                <p><strong>${hourText}</strong></p>
+                <p class="weather-icon-large">${weatherIcon}</p>
+                <p>${weatherDescription}</p>
+                <p>Temp: <strong>${temperature}°C</strong></p>
+                <p>Pluie: ${precipitation} mm</p>
+            </div>
+        `;
+    }
+    html += '</div>';
+    hourlyForecastDiv.innerHTML = html;
+}
+
+/* ========================================
    RÉCUPÉRATION DES DONNÉES MÉTÉO (OPEN-METEO)
 ======================================== */
 
@@ -285,8 +340,7 @@ async function getWeatherData() {
         weatherData = await response.json();
 
         console.log('🔍 Données météo Open-Meteo récupérées:', weatherData);
-        // Removed displayHourlyForecast() as per user request to simplify for real-time focus
-        calculateSolarRadiation(); // Recalculate solar radiation with new data
+        displayHourlyForecast(weatherData); // Re-add this call to display the 10-hour forecast
 
     } catch (error) {
         console.error('Erreur lors de la récupération des données météo:', error);
@@ -331,7 +385,7 @@ function calculateSolarPosition(latitude, longitude, date) {
     const g = ((357.528 + 0.9856003 * n) % 360) * Math.PI / 180;
     const lambda = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * Math.PI / 180;
     const delta = Math.asin(Math.sin(23.439 * Math.PI / 180) * Math.sin(lambda));
-    const E = 4 * (L * Math.PI / 180 - 0.0057183 - Math.atan2(Math.tan(lambda), Math.cos(23.439 * Math.PI / 180)));
+    const E = 4 * (L * Math.PI / 180 - 0.0057183 - Math.atan2(Math.tan(lambda), Math.cos(23.439 * Math.PI / 180));
     const TSV = (hour + minute / 60) + longitude / 15 + E / 60;
     const H = 15 * (TSV - 12) * Math.PI / 180;
     const phi = latitude * Math.PI / 180;
@@ -385,7 +439,7 @@ function toggleCustomAzimuth() {
 }
 
 /* ========================================
-   CALCUL PRINCIPAL DU RAYONNEMENT SOLAIRE
+   CALCUL PRINCIPAL DU RAYONNEMENT SOLAIRE ET GRAPHIQUE
 ======================================== */
 
 function calculateSolarRadiation() {
@@ -421,7 +475,7 @@ function calculateSolarRadiation() {
     }
 
     const current = weatherData.current;
-    const GHI = current.shortwave_radiation || 0; // Use 0 if data is missing, avoid NaN
+    const GHI = current.shortwave_radiation || 0;
     const DNI = current.direct_radiation || 0;
     const DHI = current.diffuse_radiation || 0;
 
@@ -506,7 +560,7 @@ function calculateSolarRadiation() {
         </div>
     `;
 
-    // Chart logic for 10-hour solar irradiance still present for manual display
+    // Chart logic for 10-hour solar irradiance
     if (weatherData.hourly && weatherData.hourly.time) {
         const canvasElement = document.getElementById('solarIrradianceChart');
         if (canvasElement) {
@@ -518,7 +572,7 @@ function calculateSolarRadiation() {
 
             for (let i = 0; i < weatherData.hourly.time.length; i++) {
                 const weatherTime = new Date(weatherData.hourly.time[i]);
-                if (weatherTime.getTime() >= (now.getTime() - 30 * 60 * 1000)) {
+                if (weatherTime.getTime() >= (now.getTime() - 30 * 60 * 1000)) { // Start from roughly current hour
                     startIndex = i;
                     break;
                 }
@@ -534,14 +588,15 @@ function calculateSolarRadiation() {
                 const [hour, minute] = timePart.split(':');
                 const hourStr = `${hour}:${minute}`;
 
-                const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
+                const weatherTime = new Date(data.hourly.time[dataIndex]);
 
+                // Use hourly solar data for the chart calculation
                 const GHIh = weatherData.hourly.shortwave_radiation ?
-                    weatherData.hourly.shortwave_radiation[dataIndex] : GHI;
+                    weatherData.hourly.shortwave_radiation[dataIndex] : 0;
                 const DNIh = weatherData.hourly.direct_radiation ?
-                    weatherData.hourly.direct_radiation[dataIndex] : DNI;
+                    weatherData.hourly.direct_radiation[dataIndex] : 0;
                 const DHIh = weatherData.hourly.diffuse_radiation ?
-                    weatherData.hourly.diffuse_radiation[dataIndex] : DHI;
+                    weatherData.hourly.diffuse_radiation[dataIndex] : 0;
 
                 const solarPh = calculateSolarPosition(lat, lng, weatherTime);
                 const aoiH = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPh.zenith, solarPh.azimuth);
@@ -623,7 +678,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const manualLatInput = document.getElementById('manualLat');
     const manualLngInput = document.getElementById('manualLng');
     const addressSearchInput = document.getElementById('addressSearch');
-    const autoRetrieveBtn = document.getElementById('autoRetrieveBtn'); // Get the correct button
+    const autoRetrieveBtn = document.getElementById('autoRetrieveBtn');
 
     if (getCurrentLocationBtn) {
         getCurrentLocationBtn.addEventListener('click', getCurrentLocation);
@@ -632,7 +687,7 @@ document.addEventListener('DOMContentLoaded', function() {
         getWeatherBtn.addEventListener('click', getWeatherData);
     }
     if (calculateSolarBtn) {
-        calculateSolarBtn.addEventListener('click', calculateSolarRadiation);
+        calculateSolarBtn.addEventListener('click', calculateSolarRadiation); // Solar calculation and chart are triggered here
     }
     if (wallOrientationSelect) {
         wallOrientationSelect.addEventListener('change', toggleCustomAzimuth);
@@ -676,7 +731,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    getWeatherData(); // Initial data fetch
+    getWeatherData(); // Initial data fetch for basic display (including 10-hour forecast)
 
     console.log('✅ Application initialisée avec succès !');
 
@@ -812,7 +867,7 @@ document.addEventListener('DOMContentLoaded', function() {
         tableHeader.innerHTML = "";
 
         if (all_saves.length === 0) {
-            tableBody.innerHTML = "<tr><td colspan='3'>Aucune sauvegarde enregistrée.</td></tr>"; // Changed colspan to 3
+            tableBody.innerHTML = "<tr><td colspan='3'>Aucune sauvegarde enregistrée.</td></tr>";
             document.getElementById('sauvegardesTableInfo').textContent = "Aucune sauvegarde historique récente.";
             return;
         }
@@ -847,7 +902,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateSauvegardesTable();
     }
 
-    document.addEventListener('DOMContentLoaded', updateSauvegardesTable); // Ensure table is updated on load
+    document.addEventListener('DOMContentLoaded', updateSauvegardesTable);
 
     const copyTableBtn = document.getElementById('copyTableBtn');
     if (copyTableBtn) {
