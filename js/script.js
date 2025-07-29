@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.2.1";
+const CODE_VERSION = "v1.2.1 (Simplified)"; // Updated version
 
 /* ========================================
    VARIABLES GLOBALES
@@ -8,6 +8,7 @@ let map, marker, lat = 46.8139, lng = -71.2080; // Québec par défaut
 let weatherData = null;
 let tempSelectedPosition = null;
 let solarChartInstance = null;
+let autoInterval = null; // To keep track of the auto-retrieval interval
 
 /* ========================================
    CODES MÉTÉO WMO ET ICÔNES
@@ -167,7 +168,7 @@ function validatePosition() {
     document.getElementById('manualLng').value = '';
     document.getElementById('addressSearch').value = '';
     showSuccessMessage('✅ Position validée avec succès !');
-    getWeatherData();
+    getWeatherData(); // Refresh weather data for new location
 }
 
 function updateMapPreview(latitude, longitude, displayName) {
@@ -229,7 +230,7 @@ function displayAddressResults(results) {
 
     listDiv.innerHTML = '';
 
-    results.forEach((result, index) => {
+    results.forEach((result) => {
         const cardDiv = document.createElement('div');
         cardDiv.className = 'weather-card';
         cardDiv.style.cssText = 'cursor: pointer; margin: 10px 0;';
@@ -266,188 +267,7 @@ function selectAddressResult(latitude, longitude, displayName) {
 }
 
 /* ========================================
-   🔧 FONCTION : GÉNÉRATION VECTEUR PYTHON AVEC INTERPOLATION LINÉAIRE
-======================================== */
-function generatePythonVector() {
-    if (!weatherData || !weatherData.hourly || !weatherData.hourly.temperature_2m) {
-        alert('❌ Aucune donnée météo disponible. Récupérez d\'abord les prévisions.');
-        return;
-    }
-
-    const now = new Date();
-    let startIndex = 0;
-    const currentTimeMs = now.getTime();
-
-    for (let i = 0; i < weatherData.hourly.time.length; i++) {
-        const weatherTime = new Date(weatherData.hourly.time[i]);
-        const weatherTimeMs = weatherTime.getTime();
-        if (weatherTimeMs >= (currentTimeMs - 30 * 60 * 1000)) {
-            startIndex = i;
-            break;
-        }
-    }
-
-    // Récupérer 11 heures pour avoir des transitions entre 10 heures
-    const maxHours = Math.min(10, weatherData.hourly.temperature_2m.length - startIndex);
-    const temps = weatherData.hourly.temperature_2m.slice(startIndex, startIndex + maxHours);
-
-    if (temps.length < 2) {
-        alert('❌ Pas assez de données pour générer des transitions graduelles.');
-        return;
-    }
-
-    const vector = [];
-    const debugInfo = []; // Pour vérifier l'interpolation
-
-    // 🔧 INTERPOLATION LINÉAIRE CORRIGÉE avec plus de précision
-    for (let h = 0; h < Math.min(10, temps.length - 1); h++) {
-        const currentTemp = temps[h];
-        const nextTemp = temps[h + 1];
-        const tempDiff = nextTemp - currentTemp;
-
-        // Stocker info de debug
-        debugInfo.push({
-            heure: h,
-            tempActuelle: currentTemp,
-            tempSuivante: nextTemp,
-            difference: tempDiff
-        });
-
-        // Générer 60 valeurs interpolées pour cette heure (une par minute)
-        for (let i = 0; i < 60; i++) {
-            const progress = i / 60; // 0 à 1 (progression dans l'heure)
-
-            // 🔧 CORRECTION : Utiliser plus de précision avant l'arrondi
-            const interpolatedTemp = currentTemp + (tempDiff * progress);
-
-            // Arrondir à 1 décimale pour garder plus de nuances
-            vector.push(Math.round(interpolatedTemp * 10) / 10);
-        }
-    }
-   const pythonVectorString = `[${vector.join(', ')}]`;
-navigator.clipboard.writeText(pythonVectorString).then(() => {
-  showSuccessMessage(`✅ Vecteur Python températures copié ! (${vector.length} valeurs)`);
-}).catch(err => {
-  showVectorInTextArea(pythonVectorString, 'températures synchronisées');
-});
-
-}
-
-
-/* ================================================
-   🔧 FONCTION CORRIGÉE : GÉNÉRATION VECTEUR PYTHON FLUX SOLAIRES AVEC INTERPOLATION
-================================================ */
-
-function generateSolarFluxVector() {
-    if (!weatherData || !weatherData.hourly) {
-        alert('❌ Aucune donnée météo disponible. Récupérez d\'abord les prévisions.');
-        return;
-    }
-
-    // 🔧 Paramètres identiques à ceux du graphique
-    const orientationSelect = document.getElementById('wallOrientation');
-    const customAzimuth = document.getElementById('customAzimuth');
-    const wallTilt = parseFloat(document.getElementById('wallTilt').value) || 90;
-    const albedo = parseFloat(document.getElementById('albedo').value) || 0.2;
-    const windowHeight = parseFloat(document.getElementById('windowHeight').value) || 0;
-
-    if (!orientationSelect) {
-        alert('❌ Veuillez d\'abord configurer les paramètres solaires.');
-        return;
-    }
-
-    let surfaceAzimuth;
-    if (orientationSelect.value === 'custom') {
-        surfaceAzimuth = parseFloat(customAzimuth.value);
-        if (isNaN(surfaceAzimuth)) {
-            alert('❌ Veuillez entrer un azimuth personnalisé valide.');
-            return;
-        }
-    } else {
-        surfaceAzimuth = orientationToAzimuth(orientationSelect.value);
-    }
-
-    // 🔧 Synchronisation sur la même plage que le graphique (index de départ)
-    const now = new Date();
-    let startIndex = 0;
-    for (let i = 0; i < weatherData.hourly.time.length; i++) {
-        const weatherTime = new Date(weatherData.hourly.time[i]);
-        if (weatherTime.getTime() >= (now.getTime() - 30 * 60 * 1000)) {
-            startIndex = i;
-            break;
-        }
-    }
-
-    const solarFluxes = [];
-    const debugComparison = []; // Pour vérifier la correspondance
-
-    // 🔧 Calculs strictement identiques à ceux du graphique
-    const maxHours = Math.min(10, weatherData.hourly.time.length - startIndex);
-    for (let i = 0; i < maxHours; i++) {
-        const dataIndex = startIndex + i;
-        const weatherTime = new Date(weatherData.hourly.time[dataIndex]);
-        const GHIh = weatherData.hourly.shortwave_radiation ?
-            weatherData.hourly.shortwave_radiation[dataIndex] : 800;
-        const DNIh = weatherData.hourly.direct_radiation ?
-            weatherData.hourly.direct_radiation[dataIndex] : 900;
-        const DHIh = weatherData.hourly.diffuse_radiation ?
-            weatherData.hourly.diffuse_radiation[dataIndex] : 100;
-        const solarPos = calculateSolarPosition(lat, lng, weatherTime);
-        const aoi = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPos.zenith, solarPos.azimuth);
-
-        let directOnWall = 0;
-        if (aoi < 90) directOnWall = DNIh * Math.max(0, cosd(aoi));
-        const diffuseOnWall = DHIh * (1 + cosd(wallTilt)) / 2;
-        const reduction = windowHeight <= 2 ? 1 : Math.exp(-0.2 * (windowHeight - 2));
-        const reflectedOnWall = GHIh * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
-        const totalFlux = directOnWall + diffuseOnWall + reflectedOnWall;
-        const roundedFlux = Math.round(totalFlux);
-        solarFluxes.push(roundedFlux);
-
-        debugComparison.push({
-            heure: i,
-            timestamp: weatherData.hourly.time[dataIndex],
-            totalArrondi: roundedFlux
-        });
-    }
-
-    if (solarFluxes.length < 2) {
-        alert('❌ Pas assez de données pour générer des transitions graduelles.');
-        return;
-    }
-
-    // 🔧 Interpolation linéaire sur chaque intervalle horaire — identique au graphique
-   const vector = [];
-   for (let h = 0; h < Math.min(10, solarFluxes.length - 1); h++) {
-       const currentFlux = solarFluxes[h];
-       const nextFlux = solarFluxes[h + 1];
-       const tempDiff = nextFlux - currentFlux;
-       // Interpolation linéaire par minute (60 valeurs par heure)
-       for (let i = 0; i < 60; i++) {
-           const progress = i / 60; // de 0 à <1
-           const interpolatedFlux = currentFlux + (tempDiff * progress);
-           vector.push(Math.round(interpolatedFlux * 10) / 10);
-       }
-   }
-
-
-    // Debug pour contrôle rapide
-    console.log('☀️ Synthèse graphique/vecteur:', debugComparison);
-    console.log('Première valeur:', vector[0], '/ dernière valeur:', vector[vector.length-1]);
-
-    // Export/vérification
-    const pythonVectorString = `[${vector.join(', ')}]`;
-    navigator.clipboard.writeText(pythonVectorString).then(() => {
-        showSuccessMessage(`✅ Vecteur Python flux solaires copié ! (${vector.length} valeurs)`);
-    }).catch(err => {
-        showVectorInTextArea(pythonVectorString, 'flux solaires synchronisés');
-    });
-}
-
-
-
-/* ========================================
-   RÉCUPÉRATION DES DONNÉES MÉTÉO (OPEN-METEO CORRIGÉ)
+   RÉCUPÉRATION DES DONNÉES MÉTÉO (OPEN-METEO)
 ======================================== */
 
 async function getWeatherData() {
@@ -457,7 +277,6 @@ async function getWeatherData() {
             loadingIndicator.style.display = 'block';
         }
 
-        // 🔧 REQUÊTE OPEN-METEO OPTIMISÉE
         const response = await fetch(
             `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,shortwave_radiation,direct_radiation,diffuse_radiation&hourly=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,is_day,shortwave_radiation,direct_radiation,diffuse_radiation&timezone=auto&forecast_hours=48`
         );
@@ -466,7 +285,8 @@ async function getWeatherData() {
         weatherData = await response.json();
 
         console.log('🔍 Données météo Open-Meteo récupérées:', weatherData);
-        displayHourlyForecast();
+        // Removed displayHourlyForecast() as per user request to simplify for real-time focus
+        calculateSolarRadiation(); // Recalculate solar radiation with new data
 
     } catch (error) {
         console.error('Erreur lors de la récupération des données météo:', error);
@@ -477,128 +297,6 @@ async function getWeatherData() {
             loadingIndicator.style.display = 'none';
         }
     }
-}
-
-/* ========================================
-   AFFICHAGE DES PRÉVISIONS HORAIRES (CORRIGÉ FUSEAUX HORAIRES)
-======================================== */
-
-function displayHourlyForecast() {
-    if (!weatherData || !weatherData.hourly) return;
-
-    const hourly = weatherData.hourly;
-    const forecastDiv = document.getElementById('hourlyForecast');
-    if (!forecastDiv) return;
-
-    const targetTimezone = weatherData.timezone || 'UTC';
-    const now = new Date();
-
-    // 🔧 CORRECTION : Logique fiable pour trouver l'index de départ
-    let startIndex = 0;
-    const currentTimeMs = now.getTime();
-
-    for (let i = 0; i < hourly.time.length; i++) {
-        const weatherTime = new Date(hourly.time[i]);
-        const weatherTimeMs = weatherTime.getTime();
-        if (weatherTimeMs >= (currentTimeMs - 30 * 60 * 1000)) { // 30 minutes de marge
-            startIndex = i;
-            break;
-        }
-    }
-
-    console.log(`🕐 Index de départ: ${startIndex}, Total heures: ${hourly.time.length}`);
-
-    const nowInTargetTz = new Intl.DateTimeFormat('fr-FR', {
-        timeZone: targetTimezone,
-        hour: '2-digit',
-        minute: '2-digit',
-        day: '2-digit',
-        month: '2-digit'
-    }).format(now);
-
-    const firstForecastTime = startIndex < hourly.time.length ?
-        new Intl.DateTimeFormat('fr-FR', {
-            timeZone: targetTimezone,
-            hour: '2-digit',
-            minute: '2-digit',
-            day: '2-digit',
-            month: '2-digit'
-        }).format(new Date(hourly.time[startIndex])) : 'N/A';
-
-    let forecastHTML = `
-        <div class="hourly-forecast">
-            <h3>⏰ PRÉVISIONS 10 PROCHAINES HEURES (${targetTimezone}) - Open-Meteo</h3>
-            <div class="info" style="background: rgba(255,255,255,0.1); color: white; margin: 10px 0; border: none;">
-                🕐 Maintenant à ${targetTimezone} : ${nowInTargetTz}
-                <br>🔍 Index démarrage : ${startIndex}
-                <br>📊 Total heures API : ${hourly.time.length}
-                <br>📍 Position : ${lat.toFixed(4)}, ${lng.toFixed(4)}
-            </div>
-            <div style="margin: 15px 0;">
-                <button onclick="generatePythonVector()" style="background: #00b894; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;">
-                   🐍 Copier Vecteur Python (Températures/minute - Interpolation Linéaire)
-               </button>
-               <small style="display: block; margin-top: 5px; color: #636e72;">
-                   Génère un vecteur avec transitions graduelles entre les températures horaires (540 valeurs avec interpolation linéaire)
-               </small>
-            </div>
-            <div class="hourly-grid">
-    `;
-
-    // 🔧 CORRECTION PRINCIPALE : Affichage correct des heures sans double conversion
-    for (let i = 0; i < 10 && (startIndex + i) < hourly.time.length; i++) {
-        const dataIndex = startIndex + i;
-
-        // ⚡ SOLUTION : Parser directement la chaîne ISO de l'API
-        const timeString = hourly.time[dataIndex]; // Ex: "2025-07-25T09:00"
-
-        // Extraire l'heure et la date directement de la chaîne ISO
-        const [datePart, timePart] = timeString.split('T');
-        const [year, month, day] = datePart.split('-');
-        const [hour, minute] = timePart.split(':');
-
-        // Afficher l'heure directement depuis la chaîne ISO (pas de conversion)
-        const timeStr = `${hour}:${minute}`;
-        const dateStr = `${day}/${month}`;
-
-        const temp = Math.round(hourly.temperature_2m[dataIndex]);
-        const tempFeel = Math.round(hourly.apparent_temperature[dataIndex]);
-        const humidity = hourly.relative_humidity_2m[dataIndex];
-        const precipitation = hourly.precipitation[dataIndex];
-        const windSpeed = Math.round(hourly.wind_speed_10m[dataIndex]);
-        const windDir = hourly.wind_direction_10m[dataIndex];
-        const pressure = Math.round(hourly.surface_pressure[dataIndex]);
-        const weatherCode = hourly.weather_code[dataIndex];
-        const isDay = hourly.is_day[dataIndex] === 1;
-        const icon = getWeatherIcon(weatherCode, isDay);
-
-        forecastHTML += `
-            <div class="hourly-item">
-                <div class="hourly-time">${timeStr}<br><small>${dateStr}</small></div>
-                <div class="hourly-icon">${icon}</div>
-                <div class="hourly-temp">${temp}°C</div>
-                <div class="hourly-details">
-                    <div>🌡️ Ressenti: ${tempFeel}°C</div>
-                    <div>💧 Humidité: ${humidity}%</div>
-                    <div>🌧️ Pluie: ${precipitation}mm</div>
-                    <div>💨 Vent: ${windSpeed}km/h</div>
-                    <div>🧭 Dir: ${windDir}°</div>
-                    <div>🌊 Pression: ${pressure}hPa</div>
-                </div>
-            </div>
-        `;
-    }
-
-    forecastHTML += `
-            </div>
-            <div class="info" style="margin-top: 20px; background: rgba(255,255,255,0.2); color: white; border: none;">
-                💡 <strong>Conseil rideaux:</strong> Consultez ces prévisions pour planifier l'ouverture/fermeture de vos rideaux selon la température et l'ensoleillement attendus.
-                <br>🐍 <strong>Vecteur Python:</strong> Cliquez sur le bouton ci-dessus pour copier un vecteur avec les températures de chaque seconde.
-            </div>
-        </div>
-    `;
-
-    forecastDiv.innerHTML = forecastHTML;
 }
 
 /* ========================================
@@ -697,10 +395,14 @@ function calculateSolarRadiation() {
     }
 
     const orientationSelect = document.getElementById('wallOrientation');
-    const customAzimuth = document.getElementById('customAzimuth');
-    const wallTilt = parseFloat(document.getElementById('wallTilt').value);
-    const albedo = parseFloat(document.getElementById('albedo').value);
-    const windowHeight = parseFloat(document.getElementById('windowHeight').value) || 0;
+    const customAzimuthInput = document.getElementById('customAzimuth');
+    const wallTiltInput = document.getElementById('wallTilt');
+    const albedoInput = document.getElementById('albedo');
+    const windowHeightInput = document.getElementById('windowHeight');
+
+    const wallTilt = parseFloat(wallTiltInput.value);
+    const albedo = parseFloat(albedoInput.value);
+    const windowHeight = parseFloat(windowHeightInput.value) || 0;
 
     if (!orientationSelect) {
         console.error('Element wallOrientation not found');
@@ -709,7 +411,7 @@ function calculateSolarRadiation() {
 
     let surfaceAzimuth;
     if (orientationSelect.value === 'custom') {
-        surfaceAzimuth = parseFloat(customAzimuth.value);
+        surfaceAzimuth = parseFloat(customAzimuthInput.value);
         if (isNaN(surfaceAzimuth)) {
             alert('Veuillez entrer un azimuth personnalisé valide');
             return;
@@ -719,9 +421,9 @@ function calculateSolarRadiation() {
     }
 
     const current = weatherData.current;
-    const GHI = current.shortwave_radiation || 800;
-    const DNI = current.direct_radiation || 900;
-    const DHI = current.diffuse_radiation || 100;
+    const GHI = current.shortwave_radiation || 0; // Use 0 if data is missing, avoid NaN
+    const DNI = current.direct_radiation || 0;
+    const DHI = current.diffuse_radiation || 0;
 
     const now = new Date();
     const solarPos = calculateSolarPosition(lat, lng, now);
@@ -801,18 +503,10 @@ function calculateSolarRadiation() {
                     <p><strong>TOTAL :</strong> <span style="font-size: 1.5em; color: #00b894;">${totalOnWall.toFixed(1)} W/m²</span></p>
                 </div>
             </div>
-            <div style="margin: 15px 0; text-align: center;">
-                <button onclick="generateSolarFluxVector()" style="background: #fd7900; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-right: 10px;">
-                   ☀️ Copier Vecteur Python (Flux Solaires/minute - Interpolation Linéaire)
-                </button>
-                <small style="display: block; margin-top: 5px; color: #636e72;">
-                    Génère un vecteur avec transitions graduelles entre les flux solaires horaires (540 valeurs en W/m² avec interpolation linéaire)
-                </small>
-
-            </div>
         </div>
     `;
 
+    // Chart logic for 10-hour solar irradiance still present for manual display
     if (weatherData.hourly && weatherData.hourly.time) {
         const canvasElement = document.getElementById('solarIrradianceChart');
         if (canvasElement) {
@@ -822,7 +516,6 @@ function calculateSolarRadiation() {
             const now = new Date();
             let startIndex = 0;
 
-            // Même logique pour trouver l'index de départ
             for (let i = 0; i < weatherData.hourly.time.length; i++) {
                 const weatherTime = new Date(weatherData.hourly.time[i]);
                 if (weatherTime.getTime() >= (now.getTime() - 30 * 60 * 1000)) {
@@ -831,12 +524,11 @@ function calculateSolarRadiation() {
                 }
             }
 
-            for (let i = 0; i < 10; i++) {
+            for (let i = 0; i < 10; i++) { // Display 10 hours for the chart
                 const dataIndex = startIndex + i;
 
                 if (dataIndex >= weatherData.hourly.time.length) break;
 
-                // 🔧 CORRECTION : Même traitement des heures que l'affichage
                 const timeString = weatherData.hourly.time[dataIndex];
                 const [datePart, timePart] = timeString.split('T');
                 const [hour, minute] = timePart.split(':');
@@ -908,12 +600,12 @@ function calculateSolarRadiation() {
     }
 }
 
+
 /* ========================================
    INITIALISATION AU CHARGEMENT DE LA PAGE
 ======================================== */
 
 document.addEventListener('DOMContentLoaded', function() {
-    // --- Affiche la version en haut à droite, si présent dans le HTML ---
     const versionDiv = document.getElementById('version-number');
     if (versionDiv) versionDiv.textContent = CODE_VERSION;
 
@@ -931,6 +623,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const manualLatInput = document.getElementById('manualLat');
     const manualLngInput = document.getElementById('manualLng');
     const addressSearchInput = document.getElementById('addressSearch');
+    const autoRetrieveBtn = document.getElementById('autoRetrieveBtn'); // Get the correct button
 
     if (getCurrentLocationBtn) {
         getCurrentLocationBtn.addEventListener('click', getCurrentLocation);
@@ -983,198 +676,206 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    getWeatherData();
+    getWeatherData(); // Initial data fetch
 
     console.log('✅ Application initialisée avec succès !');
 
-   let autoInterval = null; // Pour conserver l'intervalle actif
+    const autoRetrieveMessageElement = document.getElementById('autoRetrieveMessage');
+    const currentTempDisplayElement = document.getElementById('currentTempDisplay');
+    const currentFluxDisplayElement = document.getElementById('currentFluxDisplay');
 
-document.getElementById('autoRetrieveBtn').addEventListener('click', function() {
-    if (autoInterval) {
-        alert("La récupération automatique est déjà activée.");
-        return;
-    }
-    // Exécute tout de suite une fois au clic
-    retrieveAndSaveForecast();
-    // Lance toutes les heures pile (3600000 ms)
-    autoInterval = setInterval(function() {
-        // Arrête à 20h (optionnel, laisse si tu veux stopper le soir)
-        let now = new Date();
-        if (now.getHours() >= 20) {
-            clearInterval(autoInterval);
-            autoInterval = null;
-            alert("Fin de la récupération automatique (heure >= 20h)");
-            return;
-        }
-        retrieveAndSaveForecast(); // Nouvelle sauvegarde chaque minute
-    }, 60 * 1000); // Chaque minute
-
-    alert("🌡️ Lancement de la récupération automatique (prévisions et sauvegarde chaque heure jusqu'à 20h)");
-});
-
-// MODIFICATION ICI POUR NE SAUVEGARDER QUE LA TEMPÉRATURE ET LE FLUX ACTUELS
-async function retrieveAndSaveForecast() {
-    try {
-        await getWeatherData(); // Récupère en asynchrone
-
-        if (!weatherData || !weatherData.current) {
-            console.error("❌ Données météo actuelles absentes.");
-            return;
-        }
-
-        const now = new Date();
-
-        // Récupération de la température actuelle
-        const currentTemp = weatherData.current.temperature_2m;
-
-        // Calcul du flux solaire actuel en utilisant les données 'current'
-        // Récupération des paramètres UI (ou valeurs par défaut si éléments non accessibles)
-        const orientationSelect = document.getElementById('wallOrientation');
-        const customAzimuthInput = document.getElementById('customAzimuth');
-        const wallTiltInput = document.getElementById('wallTilt');
-        const albedoInput = document.getElementById('albedo');
-        const windowHeightInput = document.getElementById('windowHeight');
-
-        let wallTilt = wallTiltInput ? parseFloat(wallTiltInput.value) : 90;
-        let albedo = albedoInput ? parseFloat(albedoInput.value) : 0.2;
-        let windowHeight = windowHeightInput ? parseFloat(windowHeightInput.value) : 0;
-
-        let surfaceAzimuth = 180; // Valeur par défaut si non trouvé
-        if (orientationSelect) {
-            if (orientationSelect.value === 'custom' && customAzimuthInput) {
-                surfaceAzimuth = parseFloat(customAzimuthInput.value);
-                if (isNaN(surfaceAzimuth)) surfaceAzimuth = 180;
-            } else {
-                surfaceAzimuth = orientationToAzimuth(orientationSelect.value);
+    if (autoRetrieveBtn) {
+        autoRetrieveBtn.addEventListener('click', function() {
+            if (autoInterval) {
+                alert("La récupération automatique est déjà activée.");
+                return;
             }
+            // Update status to "Actif"
+            if (autoRetrieveMessageElement) {
+                autoRetrieveMessageElement.textContent = "Actif";
+            }
+
+            // Execute once immediately
+            retrieveAndSaveForecast();
+            // Start interval to run every minute
+            autoInterval = setInterval(function() {
+                let now = new Date();
+                if (now.getHours() >= 20 || now.getHours() < 6) { // Stop between 8 PM and 6 AM
+                    clearInterval(autoInterval);
+                    autoInterval = null;
+                    if (autoRetrieveMessageElement) {
+                        autoRetrieveMessageElement.textContent = "Inactif (Hors heures de service)";
+                    }
+                    alert("Fin de la récupération automatique (heure hors service: 20h-6h)");
+                    return;
+                }
+                retrieveAndSaveForecast(); // Save current data every minute
+            }, 60 * 1000); // Every minute
+
+            alert("🌡️ Lancement de la récupération automatique (sauvegarde chaque minute)");
+        });
+    }
+
+
+    async function retrieveAndSaveForecast() {
+        try {
+            await getWeatherData(); // Retrieve weather data
+
+            if (!weatherData || !weatherData.current) {
+                console.error("❌ Données météo actuelles absentes.");
+                return;
+            }
+
+            const now = new Date();
+
+            const currentTemp = weatherData.current.temperature_2m;
+
+            const orientationSelect = document.getElementById('wallOrientation');
+            const customAzimuthInput = document.getElementById('customAzimuth');
+            const wallTiltInput = document.getElementById('wallTilt');
+            const albedoInput = document.getElementById('albedo');
+            const windowHeightInput = document.getElementById('windowHeight');
+
+            let wallTilt = wallTiltInput ? parseFloat(wallTiltInput.value) : 90;
+            let albedo = albedoInput ? parseFloat(albedoInput.value) : 0.2;
+            let windowHeight = windowHeightInput ? parseFloat(windowHeightInput.value) : 0;
+
+            let surfaceAzimuth = 180;
+            if (orientationSelect) {
+                if (orientationSelect.value === 'custom' && customAzimuthInput) {
+                    surfaceAzimuth = parseFloat(customAzimuthInput.value);
+                    if (isNaN(surfaceAzimuth)) surfaceAzimuth = 180;
+                } else {
+                    surfaceAzimuth = orientationToAzimuth(orientationSelect.value);
+                }
+            }
+
+            const GHI_current = weatherData.current.shortwave_radiation || 0;
+            const DNI_current = weatherData.current.direct_radiation || 0;
+            const DHI_current = weatherData.current.diffuse_radiation || 0;
+
+            const solarPos_current = calculateSolarPosition(lat, lng, now);
+            const aoi_current = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPos_current.zenith, solarPos_current.azimuth);
+
+            let directOnWall_current = 0;
+            if (aoi_current < 90) {
+                directOnWall_current = DNI_current * Math.max(0, cosd(aoi_current));
+            }
+
+            const diffuseOnWall_current = DHI_current * (1 + cosd(wallTilt)) / 2;
+            const reduction = windowHeight <= 2 ? 1 : Math.exp(-0.2 * (windowHeight - 2));
+            const reflectedOnWall_current = GHI_current * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
+
+            const currentTotalFlux = Math.round((directOnWall_current + diffuseOnWall_current + reflectedOnWall_current) * 10) / 10;
+
+            const dataToSave = {
+                date: now.toISOString(),
+                temperature_actuelle: currentTemp,
+                flux_solaires_actuel: currentTotalFlux
+            };
+            addToSauvegardes(dataToSave);
+            console.log("✔️ Données actuelles sauvegardées:", dataToSave);
+
+            // Update display elements
+            if (currentTempDisplayElement) {
+                currentTempDisplayElement.textContent = `${currentTemp}°C`;
+            }
+            if (currentFluxDisplayElement) {
+                currentFluxDisplayElement.textContent = `${currentTotalFlux} W/m²`;
+            }
+
+        } catch (e) {
+            console.error("Erreur de récupération automatique:", e);
+        }
+    }
+
+    let all_saves = [];
+
+    function loadSavesFromStorage() {
+        const json = localStorage.getItem('weather_forecast_history');
+        if (json) {
+            all_saves = JSON.parse(json);
+        } else {
+            all_saves = [];
+        }
+    }
+    loadSavesFromStorage();
+
+    function updateSauvegardesTable() {
+        const tableBody = document.querySelector('#sauvegardesTable #tableBody');
+        const tableHeader = document.querySelector('#sauvegardesTable #tableHeader');
+        if (!tableBody || !tableHeader) {
+            console.error('Table elements not found');
+            return;
+        }
+        tableBody.innerHTML = "";
+        tableHeader.innerHTML = "";
+
+        if (all_saves.length === 0) {
+            tableBody.innerHTML = "<tr><td colspan='3'>Aucune sauvegarde enregistrée.</td></tr>"; // Changed colspan to 3
+            document.getElementById('sauvegardesTableInfo').textContent = "Aucune sauvegarde historique récente.";
+            return;
         }
 
-        const GHI_current = weatherData.current.shortwave_radiation || 800;
-        const DNI_current = weatherData.current.direct_radiation || 900;
-        const DHI_current = weatherData.current.diffuse_radiation || 100;
+        let headers = ['Date sauvegarde', 'T° Actuelle', 'Flux Actuel'];
+        headers.forEach(h => {
+            const th = document.createElement('th');
+            th.textContent = h;
+            tableHeader.appendChild(th);
+        });
 
-        const solarPos_current = calculateSolarPosition(lat, lng, now);
-        const aoi_current = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPos_current.zenith, solarPos_current.azimuth);
+        all_saves.forEach(save => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${new Date(save.date).toLocaleString()}</td>` +
+                           `<td>${save.temperature_actuelle}</td>` +
+                           `<td>${save.flux_solaires_actuel}</td>`;
+            tableBody.appendChild(tr);
+        });
 
-        let directOnWall_current = 0;
-        if (aoi_current < 90) {
-            directOnWall_current = DNI_current * Math.max(0, cosd(aoi_current));
+        document.getElementById('sauvegardesTableInfo').textContent = `Dernière sauvegarde : ${new Date(all_saves[all_saves.length - 1].date).toLocaleTimeString()}`;
+    }
+
+    function addToSauvegardes(dataToSave) {
+        if (all_saves.length > 0) {
+            let last = all_saves[all_saves.length - 1];
+            let lastMinute = (new Date(last.date)).toISOString().slice(0,16);
+            let newMinute = (new Date(dataToSave.date)).toISOString().slice(0,16);
+            if (lastMinute === newMinute) return;
         }
-
-        const diffuseOnWall_current = DHI_current * (1 + cosd(wallTilt)) / 2;
-        const reduction = windowHeight <= 2 ? 1 : Math.exp(-0.2 * (windowHeight - 2));
-        const reflectedOnWall_current = GHI_current * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
-
-        const currentTotalFlux = Math.round((directOnWall_current + diffuseOnWall_current + reflectedOnWall_current) * 10) / 10;
-
-        const dataToSave = {
-            date: now.toISOString(),
-            // Ne stocker que les valeurs actuelles, pas des tableaux de prévisions
-            temperature_actuelle: currentTemp,
-            flux_solaire_actuel: currentTotalFlux
-        };
-        addToSauvegardes(dataToSave);
-        console.log("✔️ Données actuelles sauvegardées:", dataToSave);
-
-        // Mettre à jour l'affichage de la température et du flux actuel dans l'interface
-        document.getElementById('currentInterpolatedTemp').textContent = `${currentTemp}°C`;
-        document.getElementById('currentInterpolatedFlux').textContent = `${currentTotalFlux} W/m²`;
-
-
-    } catch (e) {
-        console.error("Erreur de récupération automatique:", e);
+        all_saves.push(dataToSave);
+        localStorage.setItem('weather_forecast_history', JSON.stringify(all_saves));
+        updateSauvegardesTable();
     }
-}
-   // LISTE des sauvegardes (persistantes) pour affichage en tableau
-let all_saves = [];
 
-// Charge l'historique depuis le localStorage au démarrage
-function loadSavesFromStorage() {
-    const json = localStorage.getItem('weather_forecast_history');
-    if (json) {
-        all_saves = JSON.parse(json);
-    } else {
-        all_saves = [];
+    document.addEventListener('DOMContentLoaded', updateSauvegardesTable); // Ensure table is updated on load
+
+    const copyTableBtn = document.getElementById('copyTableBtn');
+    if (copyTableBtn) {
+        copyTableBtn.addEventListener('click', function() {
+            if (all_saves.length === 0) {
+                alert("Aucune donnée à copier !");
+                return;
+            }
+            let csv = [];
+            let titles = ['Date', 'Température Actuelle', 'Flux Solaire Actuel'];
+            csv.push(titles.join("\t"));
+
+            all_saves.forEach(save => {
+                let line = [
+                    new Date(save.date).toLocaleString(),
+                    save.temperature_actuelle,
+                    save.flux_solaires_actuel
+                ];
+                csv.push(line.join("\t"));
+            });
+            let text = csv.join("\n");
+            navigator.clipboard.writeText(text).then(() => {
+                alert("✅ Tableau copié ! Colle-le dans Excel directement.");
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                alert("Impossible de copier le tableau automatiquement. Erreur: " + err);
+            });
+        });
     }
-}
-loadSavesFromStorage();
-
-// Pour afficher ou mettre à jour le tableau sur la page
-function updateSauvegardesTable() {
-    const tableBody = document.getElementById('tableBody');
-    const tableHeader = document.getElementById('tableHeader');
-    if (!tableBody || !tableHeader) return;
-    tableBody.innerHTML = "";
-    tableHeader.innerHTML = "";
-
-    if (all_saves.length === 0) {
-        tableBody.innerHTML = "<tr><td colspan='999'>Aucune sauvegarde enregistrée.</td></tr>";
-        return;
-    }
-    // Génère les titres (Date, T° Actuelle, Flux Actuel)
-    let headers = ['Date sauvegarde', 'T° Actuelle', 'Flux Actuel'];
-    headers.forEach(h => {
-        const th = document.createElement('th');
-        th.textContent = h;
-        tableHeader.appendChild(th);
-    });
-
-    // Remplit les lignes
-    all_saves.forEach(save => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${new Date(save.date).toLocaleString()}</td>` +
-                       `<td>${save.temperature_actuelle}</td>` +
-                       `<td>${save.flux_solaire_actuel}</td>`;
-        tableBody.appendChild(tr);
-    });
-}
-
-// Ajoute une sauvegarde dans la liste + stockage + rafraîchit tableau
-function addToSauvegardes(dataToSave) {
-    // Empêche le doublon même minute
-    if (all_saves.length > 0) {
-        let last = all_saves[all_saves.length - 1];
-        let lastMinute = (new Date(last.date)).toISOString().slice(0,16); // YYYY-MM-DDTHH:MM
-        let newMinute = (new Date(dataToSave.date)).toISOString().slice(0,16);
-        if (lastMinute === newMinute) return; // Ne pas ajouter de doublon
-    }
-    all_saves.push(dataToSave);
-    localStorage.setItem('weather_forecast_history', JSON.stringify(all_saves));
-    updateSauvegardesTable();
-    document.getElementById('sauvegardesTableInfo').textContent = `Dernière sauvegarde : ${new Date(dataToSave.date).toLocaleTimeString()}`;
-}
-
-
-// Réactive l'affichage au rechargement de page
-document.addEventListener('DOMContentLoaded', updateSauvegardesTable);
-
-// Ajoute fonction pour bouton "Copier tableau"
-document.getElementById('copyTableBtn').addEventListener('click', function() {
-    if (all_saves.length === 0) {
-        alert("Aucune donnée à copier !");
-        return;
-    }
-    let csv = [];
-    // titres
-    let titles = ['Date', 'Température Actuelle', 'Flux Solaire Actuel'];
-    csv.push(titles.join("\t"));
-    // lignes
-    all_saves.forEach(save => {
-        let line = [
-            new Date(save.date).toLocaleString(),
-            save.temperature_actuelle,
-            save.flux_solaire_actuel
-        ];
-        csv.push(line.join("\t"));
-    });
-    let text = csv.join("\n");
-    // copie dans le presse-papiers
-    navigator.clipboard.writeText(text).then(() => {
-        alert("✅ Tableau copié ! Colle-le dans Excel directement.");
-    });
 });
 
-
-
-
-});
