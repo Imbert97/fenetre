@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.1.8 test tableau";
+const CODE_VERSION = "v1.1.9 test tableau";
 
 /* ========================================
    VARIABLES GLOBALES
@@ -526,14 +526,12 @@ function displayHourlyForecast() {
         const [hour, minute] = timePart.split(':');
 
         const timeStr = `${hour}:${minute}`; // Format "HH:MM"
-        // const dateStr = `${day}/${month}`; // Removed as per screenshot style
 
         const temp = hourly.temperature_2m[dataIndex];
         const tempFeel = hourly.apparent_temperature[dataIndex];
         const weatherCode = hourly.weather_code[dataIndex];
         const precipitation = hourly.precipitation[dataIndex];
         const windSpeed = hourly.wind_speed_10m[dataIndex];
-        // const isDay = hourly.is_day[dataIndex] === 1; // Used for icon, but icon removed from display
         const weatherDescription = weatherCodes[weatherCode] || "Inconnu"; // Use weatherCodes for description
 
         forecastHTML += `
