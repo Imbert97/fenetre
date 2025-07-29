@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.1.4 test tableau";
+const CODE_VERSION = "v1.1.5 test tableau";
 
 /* ========================================
    VARIABLES GLOBALES
