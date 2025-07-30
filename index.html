@@ -1,190 +1,227 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head> 
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Consultation Météo Interactive Mondiale 🌍</title>
+    <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" crossorigin=""/>
+    <!-- CSS personnalisé -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-
     <div id="version-number"></div>
-
     <div class="container">
-        <header>
-            <h1>🌍 Consultation Météo Interactive Mondiale</h1>
-        </header>
 
-        <main>
-            <!-- SECTION LOCALISATION -->
-            <section id="location-section" class="section-card">
-                <h2>📍 Localisation</h2>
-                <div class="info">
-                    <strong>Position actuelle:</strong> 
-                    <span id="currentLat">46.8139</span>°, 
-                    <span id="currentLng">-71.2080</span>°
+        <h1>🌍 Consultation Météo Interactive Mondiale</h1>
+        
+        <!-- SECTION LOCALISATION -->
+        <section class="section-card">
+            <h2>📍 Localisation</h2>
+            <div class="info">
+                <strong>Position actuelle:</strong> 
+                <span id="currentLat">46.8139</span>°, 
+                <span id="currentLng">-71.2080</span>°
+            </div>
+            <div class="input-group">
+                <div class="input-row">
+                    <button id="getCurrentLocation">📍 Ma position actuelle</button>
+                    <div class="input-with-unit">
+                        <label for="manualLat">Latitude:</label>
+                        <input type="number" id="manualLat" placeholder="Ex: 46.8139" step="0.0001" min="-90" max="90">
+                        <span class="unit">°</span>
+                    </div>
+                    <div class="input-with-unit">
+                        <label for="manualLng">Longitude:</label>
+                        <input type="number" id="manualLng" placeholder="Ex: -71.2080" step="0.0001" min="-180" max="180">
+                        <span class="unit">°</span>
+                    </div>
                 </div>
-                <div class="input-group">
-                    <div class="input-row">
-                        <button id="getCurrentLocation">📍 Ma position actuelle</button>
+                <div class="input-row">
+                    <div style="flex: 2; min-width: 250px;">
+                        <label for="addressSearch">🔍 Rechercher par adresse:</label>
+                        <input type="text" id="addressSearch" placeholder="Ex: Québec, Canada ou 10 Rue Saint-Jean, Québec">
+                    </div>
+                    <button id="searchAddress">🔍 Rechercher</button>
+                </div>
+                <div class="input-row">
+                    <div id="selectedLocationInfo" class="info" style="flex: 2; margin: 0; display: none;">
+                        <strong>📍 Position sélectionnée:</strong><br>
+                        <span id="selectedLocationText">Position sur la carte</span><br>
+                        <small>Coordonnées: <span id="selectedCoords">--, --</span></small>
+                    </div>
+                    <button id="validatePosition" style="display: none;">
+                        ✅ Définir cette position
+                    </button>
+                </div>
+                <div id="addressResults" class="info" style="display: none;">
+                    <strong>Résultats trouvés:</strong>
+                    <div id="addressList"></div>
+                </div>
+            </div>
+            <div id="map"></div>
+            <div class="info">
+                💡 <strong>Astuce:</strong> Cliquez directement sur la carte pour choisir une position ou utilisez la recherche d'adresse
+            </div>
+        </section>
+        <hr class="section-divider">
+
+        <!-- SECTION MÉTÉO -->
+        <section class="section-card">
+            <h2>🌤️ Données Météorologiques</h2>
+            <div class="input-group">
+                <button id="getWeather">🌍 Récupérer la météo</button>
+                <div id="loadingIndicator" class="info" style="display: none;">
+                    <div class="loading"></div> Récupération des données météorologiques...
+                </div>
+            </div>
+            <div id="hourlyForecast"></div>
+        </section>
+        <hr class="section-divider">
+
+        <!-- SECTION CALCUL SOLAIRE -->
+        <section class="section-card">
+            <h2>☀️ Calcul du Rayonnement Solaire</h2>
+            <div class="info">
+                <strong>🎯 Objectif:</strong> Calculer le rayonnement solaire sur votre mur/fenêtre pour optimiser l'utilisation de vos rideaux
+            </div>
+            <div class="input-group">
+                <h3>🏠 Configuration de votre mur/fenêtre</h3>
+                <div class="input-row">
+                    <div style="flex: 1; min-width: 200px;">
+                        <label for="wallOrientation">🧭 Orientation du mur:</label>
+                        <select id="wallOrientation" onchange="toggleCustomAzimuth()">
+                            <option value="nord">Nord (0°)</option>
+                            <option value="nord-est">Nord-Est (45°)</option>
+                            <option value="est">Est (90°)</option>
+                            <option value="sud-est">Sud-Est (135°)</option>
+                            <option value="sud" selected>Sud (180°)</option>
+                            <option value="sud-ouest">Sud-Ouest (225°)</option>
+                            <option value="ouest">Ouest (270°)</option>
+                            <option value="nord-ouest">Nord-Ouest (315°)</option>
+                            <option value="custom">🎯 Personnalisé</option>
+                        </select>
+                    </div>
+                    <div id="customAzimuthDiv" style="display: none; flex: 1; min-width: 150px;">
                         <div class="input-with-unit">
-                            <label for="manualLat">Latitude:</label>
-                            <input type="number" id="manualLat" placeholder="Ex: 46.8139" step="0.0001" min="-90" max="90">
-                            <span class="unit">°</span>
-                        </div>
-                        <div class="input-with-unit">
-                            <label for="manualLng">Longitude:</label>
-                            <input type="number" id="manualLng" placeholder="Ex: -71.2080" step="0.0001" min="-180" max="180">
-                            <span class="unit">°</span>
-                        </div>
-                    </div>
-                    <div class="input-row">
-                        <div class="input-full-width">
-                            <label for="addressSearch">🔍 Rechercher par adresse:</label>
-                            <input type="text" id="addressSearch" placeholder="Ex: Québec, Canada">
-                        </div>
-                        <button id="searchAddress">🔍 Rechercher</button>
-                    </div>
-                    <div class="input-row">
-                        <div id="selectedLocationInfo" class="info">
-                            <strong>📍 Position sélectionnée:</strong><br>
-                            <span id="selectedLocationText">Position sur la carte</span><br>
-                            <small>Coordonnées: <span id="selectedCoords">--, --</span></small>
-                        </div>
-                        <button id="validatePosition">✅ Définir cette position</button>
-                    </div>
-                    <div id="addressResults" class="info">
-                        <strong>Résultats trouvés:</strong>
-                        <div id="addressList"></div>
-                    </div>
-                </div>
-                <div id="map"></div>
-                <div class="info tip">💡 <strong>Astuce:</strong> Cliquez sur la carte ou utilisez la recherche.</div>
-            </section>
-
-            <!-- SECTION MÉTÉO -->
-            <section id="weather-section" class="section-card">
-                <h2>🌤️ Données Météorologiques</h2>
-                <div class="input-group">
-                    <button id="getWeather">🌍 Récupérer la météo</button>
-                    <div id="loadingIndicator" class="info">
-                        <div class="loading"></div> Récupération des données...
-                    </div>
-                </div>
-                <div id="hourlyForecast"></div>
-            </section>
-
-            <!-- SECTION CALCUL SOLAIRE -->
-            <section id="solar-section" class="section-card">
-                <h2>☀️ Calcul du Rayonnement Solaire</h2>
-                <div class="info">
-                    <strong>🎯 Objectif:</strong> Calculer le rayonnement solaire sur votre mur/fenêtre.
-                </div>
-                <div class="input-group">
-                    <h3>🏠 Configuration de votre mur/fenêtre</h3>
-                    <div class="input-row">
-                        <div class="input-wrapper">
-                            <label for="wallOrientation">🧭 Orientation du mur:</label>
-                            <select id="wallOrientation" onchange="toggleCustomAzimuth()">
-                                <option value="nord">Nord (0°)</option>
-                                <option value="nord-est">Nord-Est (45°)</option>
-                                <option value="est">Est (90°)</option>
-                                <option value="sud-est">Sud-Est (135°)</option>
-                                <option value="sud" selected>Sud (180°)</option>
-                                <option value="sud-ouest">Sud-Ouest (225°)</option>
-                                <option value="ouest">Ouest (270°)</option>
-                                <option value="nord-ouest">Nord-Ouest (315°)</option>
-                                <option value="custom">🎯 Personnalisé</option>
-                            </select>
-                        </div>
-                        <div id="customAzimuthDiv" class="input-with-unit">
                             <label for="customAzimuth">Azimuth personnalisé:</label>
                             <input type="number" id="customAzimuth" placeholder="Ex: 165" min="0" max="360" step="1">
                             <span class="unit">°</span>
                         </div>
                     </div>
-                    <div class="input-row">
-                        <div class="input-with-unit">
-                            <label for="wallTilt">📐 Inclinaison du mur:</label>
-                            <input type="number" id="wallTilt" value="90" min="0" max="90" step="1">
-                            <span class="unit">°</span>
-                        </div>
-                        <div class="input-with-unit">
-                            <label for="albedo">🌍 Albédo du sol:</label>
-                            <select id="albedo">
-                                <option value="0.05">Bitume/Asphalte (0.05)</option>
-                                <option value="0.20" selected>Sol moyen (0.20)</option>
-                                <option value="0.80">Neige fraîche (0.80)</option>
-                            </select>
-                        </div>
-                        <div class="input-with-unit">
-                            <label for="windowHeight">🏢 Hauteur fenêtre:</label>
-                            <input type="number" id="windowHeight" value="2" min="0" max="100" step="1">
-                            <span class="unit">m</span>
-                        </div>
-                    </div>
-                    <div class="info tip">
-                        <h4>💡 Aide aux paramètres:</h4>
-                        <ul>
-                            <li><strong>Orientation:</strong> Direction de votre mur/fenêtre.</li>
-                            <li><strong>Inclinaison:</strong> 90° = mur vertical.</li>
-                            <li><strong>Albédo:</strong> Capacité de réflexion du sol.</li>
-                        </ul>
-                    </div>
-                    <button id="calculateSolar">☀️ Calculer le rayonnement</button>
                 </div>
-                <div id="solarResults"></div>
-                <div class="chart-container">
-                    <canvas id="solarIrradianceChart"></canvas>
+                <div class="input-row">
+                    <div class="input-with-unit">
+                        <label for="wallTilt">📐 Inclinaison du mur:</label>
+                        <input type="number" id="wallTilt" value="90" min="0" max="90" step="1">
+                        <span class="unit">°</span>
+                    </div>
+                    <div class="input-with-unit">
+                        <label for="albedo">🌍 Albédo du sol:</label>
+                        <select id="albedo">
+                            <option value="0.05">Bitume/Asphalte (0.05)</option>
+                            <option value="0.10">Sol sombre (0.10)</option>
+                            <option value="0.15">Béton vieilli (0.15)</option>
+                            <option value="0.20" selected>Sol moyen (0.20)</option>
+                            <option value="0.25">Béton clair (0.25)</option>
+                            <option value="0.30">Sol clair (0.30)</option>
+                            <option value="0.40">Gravier clair (0.40)</option>
+                            <option value="0.60">Sable sec (0.60)</option>
+                            <option value="0.80">Neige fraîche (0.80)</option>
+                        </select>
+                    </div>
+                    <div class="input-with-unit">
+                        <label for="windowHeight">🏢 Hauteur de la fenêtre (par rapport au sol) :</label>
+                        <input type="number" id="windowHeight" value="2" min="0" max="100" step="1">
+                        <span class="unit">m</span>
+                    </div>
                 </div>
-            </section>
+                <div class="info">
+                    <h4>💡 Aide aux paramètres:</h4>
+                    <ul style="text-align: left; margin: 10px 0;">
+                        <li><strong>Orientation:</strong> Direction vers laquelle votre mur/fenêtre fait face</li>
+                        <li><strong>Inclinaison:</strong> 90° = mur vertical, 0° = surface horizontale</li>
+                        <li><strong>Albédo:</strong> Capacité de réflexion du sol devant votre fenêtre</li>
+                        <li><strong>Hauteur:</strong> Plus la fenêtre est haute, moins l'influence du sol est importante</li>
+                    </ul>
+                </div>
+                <button id="calculateSolar">☀️ Calculer le rayonnement solaire</button>
+            </div>
+            <div id="solarResults"></div>
+            <div style="margin:30px 0;">
+                <canvas id="solarIrradianceChart" style="width:100%;max-width:700px;height:350px;"></canvas>
+            </div>
+        </section>
+        <hr class="section-divider">
 
-            <!-- SECTION CONTRÔLES -->
-            <section id="controls-section" class="section-card">
-                <div class="controls-container">
-                    <button id="startAutoFetch" class="btn-primary">🚀 Lancer</button>
-                    <button id="stopAutoFetch" class="btn-danger">🛑 Stopper</button>
-                    <button id="copyVector" class="btn-secondary">📋 Copier</button>
-                </div>
-                <div id="progressArea">
-                    <label for="progressBar">Progression :</label>
-                    <progress id="progressBar" value="0" max="1"></progress>
-                    <span id="progressText"></span>
-                </div>
-            </section>
+        <!-- SECTION INFORMATIONS - Récupération minute, export tableau -->
+        <section id="autoFetchContainer" class="section-card">
+          <div style="display: flex; gap: 14px; align-items: center; justify-content: flex-start;">
+            <button id="startAutoFetch">
+              <span style="margin-right:6px;">🚀</span>Lancer la récupération
+            </button>
+            <button id="stopAutoFetch" style="display: none;">
+              <span style="margin-right:6px;">🛑</span>Stopper la récupération
+            </button>
+            <button id="copyVector" style="display: none;">
+              <span style="margin-right:6px;">📋</span>Copier le tableau
+            </button>
+          </div>
+          <div id="progressArea" style="margin-top: 22px; display: none;">
+            <label for="progressBar" style="font-weight:bold; color:#636e72;">Progression :</label>
+            <progress id="progressBar" value="0" max="1"></progress>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top:4px;">
+              <span id="progressText" style="color:#222;font-size:1.09em;"></span>
+            </div>
+          </div>
+        </section>
+        <hr class="section-divider">
 
-            <!-- SECTION INFORMATIONS -->
-            <section id="info-section" class="section-card">
-                <h2>ℹ️ Informations</h2>
-                <div class="info-grid">
-                    <div class="info-card">
-                        <h4>🌍 Données Météo</h4>
-                        <p>Données fournies par <strong>Open-Meteo</strong>, un service open-source.</p>
-                    </div>
-                    <div class="info-card">
-                        <h4>☀️ Calculs Solaires</h4>
-                        <p>Calculs basés sur des algorithmes astronomiques standards.</p>
-                    </div>
-                    <div class="info-card">
-                        <h4>🏠 Optimisation</h4>
-                        <p>Recommandations pour optimiser le confort thermique.</p>
-                    </div>
-                    <div class="info-card">
-                        <h4>🗺️ Carte Interactive</h4>
-                        <p>Carte basée sur <strong>OpenStreetMap</strong>.</p>
-                    </div>
+        <section class="section-card">
+            <h2>ℹ️ Informations</h2>
+            <div class="weather-grid">
+                <div class="weather-card">
+                    <h4>🌍 Données Météo</h4>
+                    <p>Les données météorologiques proviennent d'<strong>Open-Meteo</strong>, un service gratuit et open-source fournissant des prévisions météorologiques mondiales précises.</p>
                 </div>
-            </section>
-        </main>
-
+                <div class="weather-card">
+                    <h4>☀️ Calculs Solaires</h4>
+                    <p>Les calculs de position solaire et de rayonnement utilisent des algorithmes astronomiques standards pour une précision optimale.</p>
+                </div>
+                <div class="weather-card">
+                    <h4>🏠 Optimisation Rideaux</h4>
+                    <p>Les recommandations vous aident à décider quand ouvrir ou fermer vos rideaux pour optimiser le confort thermique de votre habitation.</p>
+                </div>
+                <div class="weather-card">
+                    <h4>🗺️ Carte Interactive</h4>
+                    <p>La carte utilise <strong>OpenStreetMap</strong> et permet de sélectionner n'importe quel point dans le monde pour obtenir ses données météorologiques.</p>
+                </div>
+            </div>
+            <div class="success">
+                <h4>🚀 Fonctionnalités principales:</h4>
+                <ul style="text-align: left; margin: 10px 0;">
+                    <li>✅ Météo actuelle et prévisions horaires 10h</li>
+                    <li>✅ Position solaire en temps réel</li>
+                    <li>✅ Calcul précis du rayonnement solaire</li>
+                    <li>✅ Recommandations personnalisées pour vos rideaux</li>
+                    <li>✅ Interface responsive et intuitive</li>
+                    <li>✅ Données mondiales disponibles</li>
+                </ul>
+            </div>
+        </section>
+        <!-- FOOTER -->
         <footer>
-            <p>Développé avec ❤️</p>
-            <p>Données: <a href="https://open-meteo.com/" target="_blank">Open-Meteo</a> | Cartes: <a href="https://www.openstreetmap.org/" target="_blank">OpenStreetMap</a></p>
+            <div style="text-align: center; margin: 40px 0 20px 0; color: rgba(255,255,255,0.8);">
+                <p>🌍 Consultation Météo Interactive Mondiale - Développé avec ❤️</p>
+                <p style="font-size: 0.9em;">
+                    Données météo: <a href="https://open-meteo.com/" target="_blank" style="color: rgba(255,255,255,0.9);">Open-Meteo</a> | 
+                    Cartes: <a href="https://www.openstreetmap.org/" target="_blank" style="color: rgba(255,255,255,0.9);">OpenStreetMap</a>
+                </p>
+            </div>
         </footer>
     </div>
-
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" crossorigin=""></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
