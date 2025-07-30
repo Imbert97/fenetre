@@ -986,6 +986,111 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ Application initialisée avec succès !');
 });
 
+let autoFetchInterval = null;
+let tempVector = [];
+let fluxVector = [];
+let fetchStartTime = null;
+let progressCount = 0;
+
+// Fonction pour lancer la récupération automatique
+function startAutoFetch() {
+  tempVector = [];
+  fluxVector = [];
+  fetchStartTime = new Date();
+  progressCount = 0;
+
+  document.getElementById('startAutoFetch').style.display = 'none';
+  document.getElementById('stopAutoFetch').style.display = '';
+  document.getElementById('copyVector').style.display = '';
+  document.getElementById('progressArea').style.display = '';
+
+  fetchAndAppendData(); // Premier fetch immédiat
+  autoFetchInterval = setInterval(fetchAndAppendData, 60 * 1000); // Toutes les minutes
+}
+
+// Fonction pour arrêter la récupération
+function stopAutoFetch() {
+  clearInterval(autoFetchInterval);
+  document.getElementById('startAutoFetch').style.display = '';
+  document.getElementById('stopAutoFetch').style.display = 'none';
+  // Copier bouton reste affiché pour permettre l'export même après arrêt
+}
+
+// Fonction pour copier le vecteur en cours
+function copyVector() {
+  const vectFinal = {
+    temperatures: tempVector,
+    flux: fluxVector
+  };
+  const str = JSON.stringify(vectFinal, null, 2);
+  navigator.clipboard.writeText(str).then(() => {
+    showSuccessMessage('✅ Vecteurs copiés dans le presse-papier !');
+  });
+}
+
+// Récupère la température et le flux courant, actualise les vecteurs et la barre
+function fetchAndAppendData() {
+  // Requête à Open-Meteo API (utilise la même logique que getWeatherData mais pour le point courant)
+  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,shortwave_radiation,direct_radiation,diffuse_radiation&timezone=auto`)
+    .then(resp => resp.json())
+    .then(data => {
+      const now = new Date();
+      let temperature = data.current.temperature_2m || null;
+      let GHI = data.current.shortwave_radiation || 800;
+      let DNI = data.current.direct_radiation || 900;
+      let DHI = data.current.diffuse_radiation || 100;
+
+      // Récupère les paramètres DOM pour le calcul solaire, comme dans calculateSolarRadiation
+      const orientationSelect = document.getElementById('wallOrientation');
+      const customAzimuth = document.getElementById('customAzimuth');
+      const wallTilt = parseFloat(document.getElementById('wallTilt').value) || 90;
+      const albedo = parseFloat(document.getElementById('albedo').value) || 0.2;
+      const windowHeight = parseFloat(document.getElementById('windowHeight').value) || 0;
+      let surfaceAzimuth;
+      if (orientationSelect.value === 'custom') {
+        surfaceAzimuth = parseFloat(customAzimuth.value);
+        if (isNaN(surfaceAzimuth)) surfaceAzimuth = 180;
+      } else {
+        surfaceAzimuth = orientationToAzimuth(orientationSelect.value);
+      }
+      // Calcul du rayonnement sur le mur :
+      const solarPos = calculateSolarPosition(lat, lng, now);
+      const aoi = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPos.zenith, solarPos.azimuth);
+      let directOnWall = 0;
+      if(aoi < 90) {
+        directOnWall = DNI * Math.max(0, cosd(aoi));
+      }
+      const diffuseOnWall = DHI * (1 + cosd(wallTilt)) / 2;
+      let reduction = windowHeight <= 2 ? 1 : Math.exp(-0.2 * (windowHeight - 2));
+      const reflectedOnWall = GHI * albedo * (1 - cosd(wallTilt)) / 2 * reduction;
+      const totalFlux = directOnWall + diffuseOnWall + reflectedOnWall;
+
+      // Ajoute au vecteur
+      tempVector.push(temperature);
+      fluxVector.push(Math.round(totalFlux * 10) / 10);
+      progressCount++;
+
+      // MAJ barre de progression & texte
+      document.getElementById('progressBar').max = 60; // Ex : max 60 min, peut adapter
+      document.getElementById('progressBar').value = progressCount;
+      document.getElementById('progressText').textContent =
+        `${progressCount} min ajoutées · Temp: ${temperature}°C · Flux: ${Math.round(totalFlux)} W/m²`;
+
+    })
+    .catch(err => {
+      showSuccessMessage("❌ Erreur API lors de la récupération");
+      stopAutoFetch();
+    });
+}
+
+// Ajoute gestionnaires d'événements après DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('startAutoFetch').onclick = startAutoFetch;
+  document.getElementById('stopAutoFetch').onclick = stopAutoFetch;
+  document.getElementById('copyVector').onclick = copyVector;
+});
+
+
 
 
 
