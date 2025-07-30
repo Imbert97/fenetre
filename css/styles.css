@@ -16,6 +16,11 @@ body {
     line-height: 1.6;
 }
 
+body, .container, .section-card, .info, .success, .warning, .error,
+#solarResults, #hourlyForecast, #rideauxConseil, #apiVector {
+    color: #7a5633;
+}
+
 .container {
     max-width: 1200px;
     margin: 34px auto 34px auto;
