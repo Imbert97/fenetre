@@ -17,9 +17,11 @@ body {
 }
 
 body, .container, .section-card, .info, .success, .warning, .error,
-#solarResults, #hourlyForecast, #rideauxConseil, #apiVector {
-    color: #7a5633;
+#solarResults, #hourlyForecast, #rideauxConseil, #apiVector,
+#solarResults *, #hourlyForecast *, #rideauxConseil *, #apiVector * {
+    color: #7a5633 !important;
 }
+
 
 .container {
     max-width: 1200px;
