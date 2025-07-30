@@ -173,6 +173,23 @@
         </div>
         
         <!-- SECTION INFORMATIONS -->
+        <div id="autoFetchContainer" style="margin-top: 20px;">
+          <button id="startAutoFetch" style="background: #0984e3; color: white; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold;">
+            🚀 Lancer la récupération
+          </button>
+          <button id="stopAutoFetch" style="background: #d63031; color: white; padding: 10px 20px; border: none; border-radius: 5px; display: none; font-weight: bold;">
+            ⏹️ Stopper la récupération
+          </button>
+          <button id="copyVector" style="background: #00b894; color: white; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; display: none;">
+            🐍 Copier le vecteur
+          </button>
+          <div id="progressArea" style="margin-top: 15px; display: none;">
+            <label>Progression :</label>
+            <progress id="progressBar" value="0" max="1" style="width: 80%;"></progress>
+            <span id="progressText"></span>
+          </div>
+        </div>
+        
         <div class="section-card">
             <h2>ℹ️ Informations</h2>
             <div class="weather-grid">
