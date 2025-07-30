@@ -1024,7 +1024,7 @@ function stopAutoFetch() {
 function copyVector() {
   let arrayStr = "";
   // Ligne des heures (header)
-  arrayStr += ";" + timeVector.join(";") + "\n";
+  arrayStr += "Heure;" + timeVector.join(";") + "\n";
   // Températures
   arrayStr += "Température (°C);" + tempVector.map(x => (x !== null ? x : "")).join(";") + "\n";
   // Flux solaire
