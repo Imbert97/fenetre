@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.1.1";
+const CODE_VERSION = "v1.2.1";
 
 /* ========================================
    VARIABLES GLOBALES
