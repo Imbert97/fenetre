@@ -983,8 +983,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    getWeatherData();
-    
     console.log('✅ Application initialisée avec succès !');
 });
 
