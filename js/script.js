@@ -1,4 +1,4 @@
-const CODE_VERSION = "v1.2.1";
+const CODE_VERSION = "v1.2.2";
 
 /* ========================================
    VARIABLES GLOBALES
@@ -986,16 +986,20 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ Application initialisée avec succès !');
 });
 
+
+// Fonction pour lancer la récupération automatique
+//////////////////////////////////////////////////////////////////////////////////////
+
 let autoFetchInterval = null;
 let tempVector = [];
 let fluxVector = [];
-let fetchStartTime = null;
+let timeVector = [];
 let progressCount = 0;
 
-// Fonction pour lancer la récupération automatique
 function startAutoFetch() {
   tempVector = [];
   fluxVector = [];
+  timeVector = [];
   fetchStartTime = new Date();
   progressCount = 0;
 
@@ -1016,25 +1020,28 @@ function stopAutoFetch() {
   // Copier bouton reste affiché pour permettre l'export même après arrêt
 }
 
-// Fonction pour copier le vecteur en cours
+// Fonction pour copier le tableau en CSV (horaires, puis température, puis flux)
 function copyVector() {
-  const vectFinal = {
-    temperatures: tempVector,
-    flux: fluxVector
-  };
-  const str = JSON.stringify(vectFinal, null, 2);
-  navigator.clipboard.writeText(str).then(() => {
-    showSuccessMessage('✅ Vecteurs copiés dans le presse-papier !');
+  let arrayStr = "";
+  // Ligne des heures (header)
+  arrayStr += ";" + timeVector.join(";") + "\n";
+  // Températures
+  arrayStr += "Température (°C);" + tempVector.map(x => (x !== null ? x : "")).join(";") + "\n";
+  // Flux solaire
+  arrayStr += "Flux (W/m²);" + fluxVector.map(x => (x !== null ? x : "")).join(";");
+  navigator.clipboard.writeText(arrayStr).then(() => {
+    showSuccessMessage('✅ Tableau copié (CSV, ouvrable avec Excel/Google Sheets) !');
   });
 }
 
-// Récupère la température et le flux courant, actualise les vecteurs et la barre
+// Récupère la température, le flux courant, l'heure, actualise les vecteurs et la barre
 function fetchAndAppendData() {
-  // Requête à Open-Meteo API (utilise la même logique que getWeatherData mais pour le point courant)
   fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,shortwave_radiation,direct_radiation,diffuse_radiation&timezone=auto`)
     .then(resp => resp.json())
     .then(data => {
       const now = new Date();
+      // Heure formatée HH:MM:SS
+      let hstr = now.toLocaleTimeString('fr-FR', { hour12: false });
       let temperature = data.current.temperature_2m || null;
       let GHI = data.current.shortwave_radiation || 800;
       let DNI = data.current.direct_radiation || 900;
@@ -1053,7 +1060,7 @@ function fetchAndAppendData() {
       } else {
         surfaceAzimuth = orientationToAzimuth(orientationSelect.value);
       }
-      // Calcul du rayonnement sur le mur :
+      // Calcul du rayonnement sur le mur
       const solarPos = calculateSolarPosition(lat, lng, now);
       const aoi = calculateAngleOfIncidence(wallTilt, surfaceAzimuth, solarPos.zenith, solarPos.azimuth);
       let directOnWall = 0;
@@ -1066,6 +1073,7 @@ function fetchAndAppendData() {
       const totalFlux = directOnWall + diffuseOnWall + reflectedOnWall;
 
       // Ajoute au vecteur
+      timeVector.push(hstr);
       tempVector.push(temperature);
       fluxVector.push(Math.round(totalFlux * 10) / 10);
       progressCount++;
