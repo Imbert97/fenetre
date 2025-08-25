@@ -1,237 +1,302 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Consultation Météo Interactive Mondiale 🌍</title>
-    <!-- Favicon -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" crossorigin=""/>
-    <!-- CSS personnalisé -->
-    <link rel="stylesheet" href="css/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌍 Météo & Rayonnement Solaire</title>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" crossorigin=""/>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f7f3ef;
+      color: #333;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #6b4b2d;
+    }
+    h2 {
+      margin: 20px 0 10px 0;
+      color: #8d5a2b;
+    }
+    .section-card {
+      background: #faf8f5;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 25px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+    input, select, button {
+      padding: 8px 12px;
+      margin: 5px 0;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 15px;
+    }
+    button {
+      background: #deb887;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover { background: #c9a06d; }
+    #map {
+      height: 350px;
+      margin-top: 15px;
+      border-radius: 10px;
+    }
+    #solarIrradianceChart {
+      margin-top: 20px;
+      max-width: 700px;
+    }
+  </style>
 </head>
 <body>
-    <div id="version-number"></div>
-    <div class="container">
+<div class="container">
+  <h1>🌍 Météo & Rayonnement Solaire</h1>
 
-        <h1>🌍 Consultation Météo Interactive Mondiale</h1>
-        
-        <!-- SECTION LOCALISATION -->
-        <section class="section-card">
-            <h2>📍 Localisation</h2>
-            <div class="info">
-                <strong>Position actuelle:</strong> 
-                <span id="currentLat">46.8139</span>°, 
-                <span id="currentLng">-71.2080</span>°
-            </div>
-            <div class="input-group">
-                <div class="input-row">
-                    <button id="getCurrentLocation">📍 Ma position actuelle</button>
-                    <div class="input-with-unit">
-                        <label for="manualLat">Latitude:</label>
-                        <input type="number" id="manualLat" placeholder="Ex: 46.8139" step="0.0001" min="-90" max="90">
-                        <span class="unit">°</span>
-                    </div>
-                    <div class="input-with-unit">
-                        <label for="manualLng">Longitude:</label>
-                        <input type="number" id="manualLng" placeholder="Ex: -71.2080" step="0.0001" min="-180" max="180">
-                        <span class="unit">°</span>
-                    </div>
-                </div>
-                <div class="input-row">
-                    <div style="flex: 2; min-width: 250px;">
-                        <label for="addressSearch">🔍 Rechercher par adresse:</label>
-                        <input type="text" id="addressSearch" placeholder="Ex: Québec, Canada ou 10 Rue Saint-Jean, Québec">
-                    </div>
-                    <button id="searchAddress">🔍 Rechercher</button>
-                </div>
-                <div class="input-row">
-                    <div id="selectedLocationInfo" class="info" style="flex: 2; margin: 0; display: none;">
-                        <strong>📍 Position sélectionnée:</strong><br>
-                        <span id="selectedLocationText">Position sur la carte</span><br>
-                        <small>Coordonnées: <span id="selectedCoords">--, --</span></small>
-                    </div>
-                    <button id="validatePosition" style="display: none;">
-                        ✅ Définir cette position
-                    </button>
-                </div>
-                <div id="addressResults" class="info" style="display: none;">
-                    <strong>Résultats trouvés:</strong>
-                    <div id="addressList"></div>
-                </div>
-            </div>
-            <div id="map"></div>
-            <div class="info">
-                💡 <strong>Astuce:</strong> Cliquez directement sur la carte pour choisir une position ou utilisez la recherche d'adresse
-            </div>
-        </section>
-        <hr class="section-divider">
-
-        <!-- SECTION MÉTÉO -->
-        <section class="section-card">
-            <h2>🌤️ Données Météorologiques</h2>
-            <div class="input-group">
-                <button id="getWeather">🌍 Récupérer la météo</button>
-                <div id="loadingIndicator" class="info" style="display: none;">
-                    <div class="loading"></div> Récupération des données météorologiques...
-                </div>
-            </div>
-            <div id="hourlyForecast"></div>
-        </section>
-        <hr class="section-divider">
-
-        <!-- SECTION CALCUL SOLAIRE -->
-        <section class="section-card">
-            <h2>☀️ Calcul du Rayonnement Solaire</h2>
-            <div class="info">
-                <strong>🎯 Objectif:</strong> Calculer le rayonnement solaire sur votre mur/fenêtre pour optimiser l'utilisation de vos rideaux
-            </div>
-            <div class="input-group">
-                <h3>🏠 Configuration de votre mur/fenêtre</h3>
-                <div class="input-row">
-                    <div style="flex: 1; min-width: 200px;">
-                        <label for="wallOrientation">🧭 Orientation du mur:</label>
-                        <select id="wallOrientation" onchange="toggleCustomAzimuth()">
-                            <option value="nord">Nord (0°)</option>
-                            <option value="nord-est">Nord-Est (45°)</option>
-                            <option value="est">Est (90°)</option>
-                            <option value="sud-est">Sud-Est (135°)</option>
-                            <option value="sud" selected>Sud (180°)</option>
-                            <option value="sud-ouest">Sud-Ouest (225°)</option>
-                            <option value="ouest">Ouest (270°)</option>
-                            <option value="nord-ouest">Nord-Ouest (315°)</option>
-                            <option value="custom">🎯 Personnalisé</option>
-                        </select>
-                    </div>
-                    <div id="customAzimuthDiv" style="display: none; flex: 1; min-width: 150px;">
-                        <div class="input-with-unit">
-                            <label for="customAzimuth">Azimuth personnalisé:</label>
-                            <input type="number" id="customAzimuth" placeholder="Ex: 165" min="0" max="360" step="1">
-                            <span class="unit">°</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="input-row">
-                    <div class="input-with-unit">
-                        <label for="wallTilt">📐 Inclinaison du mur:</label>
-                        <input type="number" id="wallTilt" value="90" min="0" max="90" step="1">
-                        <span class="unit">°</span>
-                    </div>
-                    <div class="input-with-unit">
-                        <label for="albedo">🌍 Albédo du sol:</label>
-                        <select id="albedo">
-                            <option value="0.05">Bitume/Asphalte (0.05)</option>
-                            <option value="0.10">Sol sombre (0.10)</option>
-                            <option value="0.15">Béton vieilli (0.15)</option>
-                            <option value="0.20" selected>Sol moyen (0.20)</option>
-                            <option value="0.25">Béton clair (0.25)</option>
-                            <option value="0.30">Sol clair (0.30)</option>
-                            <option value="0.40">Gravier clair (0.40)</option>
-                            <option value="0.60">Sable sec (0.60)</option>
-                            <option value="0.80">Neige fraîche (0.80)</option>
-                        </select>
-                    </div>
-                    <div class="input-with-unit">
-                        <label for="windowHeight">🏢 Hauteur de la fenêtre (par rapport au sol) :</label>
-                        <input type="number" id="windowHeight" value="2" min="0" max="100" step="1">
-                        <span class="unit">m</span>
-                    </div>
-                </div>
-                <div class="info">
-                    <h4>💡 Aide aux paramètres:</h4>
-                    <ul style="text-align: left; margin: 10px 0;">
-                        <li><strong>Orientation:</strong> Direction vers laquelle votre mur/fenêtre fait face</li>
-                        <li><strong>Inclinaison:</strong> 90° = mur vertical, 0° = surface horizontale</li>
-                        <li><strong>Albédo:</strong> Capacité de réflexion du sol devant votre fenêtre</li>
-                        <li><strong>Hauteur:</strong> Plus la fenêtre est haute, moins l'influence du sol est importante</li>
-                    </ul>
-                </div>
-                <button id="calculateSolar">☀️ Calculer le rayonnement solaire</button>
-            </div>
-            <div id="solarResults"></div>
-            <div style="margin:30px 0;">
-                <canvas id="solarIrradianceChart" style="width:100%;max-width:700px;height:350px;"></canvas>
-            </div>
-        </section>
-        <hr class="section-divider">
-
-        <!-- SECTION INFORMATIONS - Récupération minute, export tableau -->
-        <section id="autoFetchContainer" class="section-card">
-          <div style="display: flex; gap: 14px; align-items: center; justify-content: flex-start;">
-            <button id="startAutoFetch">
-              <span style="margin-right:6px;">🚀</span>Lancer la récupération
-            </button>
-            <button id="stopAutoFetch" style="display: none;">
-              <span style="margin-right:6px;">🛑</span>Stopper la récupération
-            </button>
-            <button id="copyVector" style="display: none;">
-              <span style="margin-right:6px;">📋</span>Copier le tableau
-            </button>
-          </div>
-          <div id="progressArea" style="margin-top: 22px; display: none;">
-            <label for="progressBar" style="font-weight:bold; color:#636e72;">Progression :</label>
-            <progress id="progressBar" value="0" max="1"></progress>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top:4px;">
-              <span id="progressText" style="color:#222;font-size:1.09em;"></span>
-            </div>
-          </div>
-        </section>
-        <hr class="section-divider">
-
-        <section class="section-card">
-            <h2>ℹ️ Informations</h2>
-            <div class="weather-grid">
-                <div class="weather-card">
-                    <h4>🌍 Données Météo</h4>
-                    <p>Les données météorologiques proviennent d'<strong>Open-Meteo</strong>, un service gratuit et open-source fournissant des prévisions météorologiques mondiales précises.</p>
-                </div>
-                <div class="weather-card">
-                    <h4>☀️ Calculs Solaires</h4>
-                    <p>Les calculs de position solaire et de rayonnement utilisent des algorithmes astronomiques standards pour une précision optimale.</p>
-                </div>
-                <div class="weather-card">
-                    <h4>🏠 Optimisation Rideaux</h4>
-                    <p>Les recommandations vous aident à décider quand ouvrir ou fermer vos rideaux pour optimiser le confort thermique de votre habitation.</p>
-                </div>
-                <div class="weather-card">
-                    <h4>🗺️ Carte Interactive</h4>
-                    <p>La carte utilise <strong>OpenStreetMap</strong> et permet de sélectionner n'importe quel point dans le monde pour obtenir ses données météorologiques.</p>
-                </div>
-            </div>
-            <div class="success">
-                <h4>🚀 Fonctionnalités principales:</h4>
-                <ul style="text-align: left; margin: 10px 0;">
-                    <li>✅ Météo actuelle et prévisions horaires 10h</li>
-                    <li>✅ Position solaire en temps réel</li>
-                    <li>✅ Calcul précis du rayonnement solaire</li>
-                    <li>✅ Recommandations personnalisées pour vos rideaux</li>
-                    <li>✅ Interface responsive et intuitive</li>
-                    <li>✅ Données mondiales disponibles</li>
-                </ul>
-            </div>
-        </section>
-        <!-- FOOTER -->
-        <footer>
-            <div style="text-align: center; margin: 40px 0 20px 0; color: rgba(255,255,255,0.8);">
-                <p>🌍 Consultation Météo Interactive Mondiale - Développé avec ❤️</p>
-                <p style="font-size: 0.9em;">
-                    Données météo: <a href="https://open-meteo.com/" target="_blank" style="color: rgba(255,255,255,0.9);">Open-Meteo</a> | 
-                    Cartes: <a href="https://www.openstreetmap.org/" target="_blank" style="color: rgba(255,255,255,0.9);">OpenStreetMap</a>
-                </p>
-            </div>
-        </footer>
+  <!-- LOCALISATION -->
+  <section class="section-card">
+    <h2>📍 Localisation</h2>
+    <button id="getCurrentLocation">Ma position actuelle</button>
+    <div style="margin-top:10px;">
+      <label for="addressSearch">🔍 Rechercher une adresse :</label>
+      <input type="text" id="addressSearch" placeholder="Ex: Québec, Canada">
+      <button id="searchAddress">Rechercher</button>
     </div>
-    <!-- Scripts -->
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js" crossorigin=""></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="js/script.js"></script>
+    <div id="map"></div>
+    <div style="margin-top:10px;">
+      <button id="validatePosition" style="display:none;">✅ Définir cette position</button>
+    </div>
+  </section>
+
+  <!-- ORIENTATION -->
+  <section class="section-card">
+    <h2>🧭 Orientation du mur / fenêtre</h2>
+    <label for="wallOrientation">Orientation :</label>
+    <select id="wallOrientation">
+      <option value="nord">Nord (0°)</option>
+      <option value="est">Est (90°)</option>
+      <option value="sud" selected>Sud (180°)</option>
+      <option value="ouest">Ouest (270°)</option>
+      <option value="custom">Personnalisé</option>
+    </select>
+    <div id="customAzimuthDiv" style="display:none;">
+      <label for="customAzimuth">Azimuth personnalisé (°) :</label>
+      <input type="number" id="customAzimuth" min="0" max="360" step="1">
+    </div>
+    <label for="wallTilt">Inclinaison du mur (°) :</label>
+    <input type="number" id="wallTilt" value="90" min="0" max="90">
+    <label for="albedo">Albédo du sol :</label>
+    <select id="albedo">
+      <option value="0.2" selected>Sol moyen (0.20)</option>
+      <option value="0.05">Asphalte (0.05)</option>
+      <option value="0.8">Neige (0.80)</option>
+    </select>
+    <label for="windowHeight">Hauteur fenêtre (m) :</label>
+    <input type="number" id="windowHeight" value="2" min="0" max="100">
+  </section>
+
+  <!-- MÉTÉO + SOLAIRE TEMPS RÉEL -->
+  <section class="section-card">
+    <h2>🌤️ Données en temps réel</h2>
+    <button id="startAutoFetch">🚀 Lancer la récupération</button>
+    <button id="stopAutoFetch" style="display:none;">🛑 Stopper</button>
+    <button id="copyData" style="display:none;">📋 Copier les données</button>
+    <div id="progressText" style="margin-top:10px;"></div>
+    <div id="solarResults"></div>
+    <canvas id="solarIrradianceChart"></canvas>
+  </section>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script>
+let map, marker, lat = 46.8139, lng = -71.2080;
+let weatherData = null, solarChartInstance = null;
+let tempSelectedPosition = null;
+let autoFetchInterval = null;
+let minutesCounter = 0;
+let recordedData = [];
+
+function initMap() {
+  map = L.map('map').setView([lat, lng], 10);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  marker = L.marker([lat, lng]).addTo(map).bindPopup(`📍 Position: ${lat}, ${lng}`).openPopup();
+  map.on('click', e => {
+    tempSelectedPosition = {lat: e.latlng.lat, lng: e.latlng.lng};
+    if (marker) marker.remove();
+    marker = L.marker([tempSelectedPosition.lat, tempSelectedPosition.lng]).addTo(map).bindPopup("🔍 Position sélectionnée").openPopup();
+    document.getElementById('validatePosition').style.display = 'inline-block';
+  });
+}
+
+function getCurrentLocation() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      lat = pos.coords.latitude;
+      lng = pos.coords.longitude;
+      map.setView([lat, lng], 12);
+      if (marker) marker.remove();
+      marker = L.marker([lat, lng]).addTo(map).bindPopup("📍 Votre position").openPopup();
+    });
+  }
+}
+
+async function searchAddress() {
+  const addr = document.getElementById('addressSearch').value.trim();
+  if (!addr) return;
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1`);
+  const data = await res.json();
+  if (data.length > 0) {
+    tempSelectedPosition = {lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon)};
+    map.setView([tempSelectedPosition.lat, tempSelectedPosition.lng], 12);
+    if (marker) marker.remove();
+    marker = L.marker([tempSelectedPosition.lat, tempSelectedPosition.lng]).addTo(map).bindPopup(data[0].display_name).openPopup();
+    document.getElementById('validatePosition').style.display = 'inline-block';
+  }
+}
+
+function validatePosition() {
+  if (!tempSelectedPosition) return;
+  lat = tempSelectedPosition.lat;
+  lng = tempSelectedPosition.lng;
+  map.setView([lat, lng], 12);
+  if (marker) marker.remove();
+  marker = L.marker([lat, lng]).addTo(map).bindPopup("✅ Position validée").openPopup();
+  document.getElementById('validatePosition').style.display = 'none';
+}
+
+function orientationToAzimuth(o) {
+  return { nord:0, est:90, sud:180, ouest:270 }[o] || 180;
+}
+
+function cosd(d) { return Math.cos(d*Math.PI/180); }
+
+function calculateAngleOfIncidence(surfaceTilt, surfaceAzimuth, solarZenith, solarAzimuth) {
+  const tilt = surfaceTilt * Math.PI/180;
+  const surfAz = surfaceAzimuth * Math.PI/180;
+  const zen = solarZenith * Math.PI/180;
+  const solAz = solarAzimuth * Math.PI/180;
+  const cosInc = Math.sin(zen)*Math.sin(tilt)*Math.cos(solAz-surfAz)+Math.cos(zen)*Math.cos(tilt);
+  return Math.acos(Math.max(-1, Math.min(1, cosInc)))*180/Math.PI;
+}
+
+function calculateSolarPosition(date) {
+  const phi = lat*Math.PI/180;
+  const n = (date/86400000 + 2440587.5) - 2451545.0;
+  const L = (280.46 + 0.9856474*n)%360;
+  const g = (357.528 + 0.9856003*n)%360 * Math.PI/180;
+  const lambda = (L + 1.915*Math.sin(g) + 0.02*Math.sin(2*g))*Math.PI/180;
+  const delta = Math.asin(Math.sin(23.439*Math.PI/180)*Math.sin(lambda));
+  const H = ((date.getUTCHours()+date.getUTCMinutes()/60)+(lng/15)-12)*15*Math.PI/180;
+  const elev = Math.asin(Math.sin(phi)*Math.sin(delta)+Math.cos(phi)*Math.cos(delta)*Math.cos(H));
+  let az = Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(phi)-Math.tan(delta)*Math.cos(phi));
+  az = (az*180/Math.PI+180)%360;
+  return { zenith:90-elev*180/Math.PI, azimuth:az };
+}
+
+async function fetchAndDisplay() {
+  const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,shortwave_radiation,direct_radiation,diffuse_radiation&timezone=auto`);
+  weatherData = await res.json();
+  displaySolarCalculation();
+}
+
+function displaySolarCalculation() {
+  const orientation = document.getElementById('wallOrientation').value;
+  const tilt = parseFloat(document.getElementById('wallTilt').value);
+  const albedo = parseFloat(document.getElementById('albedo').value);
+  const h = parseFloat(document.getElementById('windowHeight').value);
+  let azimuth = orientationToAzimuth(orientation);
+  if (orientation === 'custom') {
+    azimuth = parseFloat(document.getElementById('customAzimuth').value)||180;
+  }
+
+  const now = new Date();
+  const solarPos = calculateSolarPosition(now);
+  const aoi = calculateAngleOfIncidence(tilt, azimuth, solarPos.zenith, solarPos.azimuth);
+  const GHI = weatherData.current.shortwave_radiation||800;
+  const DNI = weatherData.current.direct_radiation||900;
+  const DHI = weatherData.current.diffuse_radiation||100;
+  let direct = aoi<90? DNI*Math.max(0, cosd(aoi)):0;
+  let diffuse = DHI*(1+cosd(tilt))/2;
+  let reflected = GHI*albedo*(1-cosd(tilt))/2*Math.exp(-0.2*Math.max(0,h-2));
+  let total = direct+diffuse+reflected;
+
+  recordedData.push({time: now.toLocaleTimeString(), temp: weatherData.current.temperature_2m, flux: total.toFixed(1)});
+
+  document.getElementById('solarResults').innerHTML = `<p>🌡 Température: ${weatherData.current.temperature_2m} °C<br><b>Total flux:</b> ${total.toFixed(1)} W/m²</p>`;
+  document.getElementById('progressText').textContent = `Minutes enregistrées: ${minutesCounter}`;
+
+  const ctx = document.getElementById('solarIrradianceChart').getContext('2d');
+  if (solarChartInstance) solarChartInstance.destroy();
+  solarChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: ['Direct','Diffus','Réfléchi','Total'], datasets:[{ data:[direct,diffuse,reflected,total], backgroundColor:['#ff9800','#03a9f4','#8bc34a','#673ab7'] }]},
+    options:{ plugins:{legend:{display:false}} }
+  });
+}
+
+function startAutoFetch() {
+  document.getElementById('startAutoFetch').style.display = 'none';
+  document.getElementById('stopAutoFetch').style.display = 'inline-block';
+  document.getElementById('copyData').style.display = 'inline-block';
+  minutesCounter = 0;
+  recordedData = [];
+  autoFetchInterval = setInterval(()=>{
+    fetchAndDisplay();
+    minutesCounter++;
+    document.getElementById('progressText').textContent = `Minutes enregistrées: ${minutesCounter}`;
+  },60000);
+  fetchAndDisplay();
+}
+
+function stopAutoFetch() {
+  clearInterval(autoFetchInterval);
+  document.getElementById('startAutoFetch').style.display = 'inline-block';
+  document.getElementById('stopAutoFetch').style.display = 'none';
+}
+
+function copyData() {
+  let text = recordedData.map(d => `${d.time} | Temp: ${d.temp}°C | Flux: ${d.flux} W/m²`).join("\n");
+  navigator.clipboard.writeText(text).then(()=>{
+    alert("📋 Données copiées dans le presse-papier !");
+  });
+}
+
+// --- INIT ---
+document.addEventListener('DOMContentLoaded',()=>{
+  initMap();
+  document.getElementById('getCurrentLocation').addEventListener('click',getCurrentLocation);
+  document.getElementById('searchAddress').addEventListener('click',searchAddress);
+  document.getElementById('validatePosition').addEventListener('click',validatePosition);
+  document.getElementById('startAutoFetch').addEventListener('click',startAutoFetch);
+  document.getElementById('stopAutoFetch').addEventListener('click',stopAutoFetch);
+  document.getElementById('copyData').addEventListener('click',copyData);
+  document.getElementById('wallOrientation').addEventListener('change',()=>{
+    document.getElementById('customAzimuthDiv').style.display = (document.getElementById('wallOrientation').value==='custom')? 'block':'none';
+  });
+});
+</script>
 </body>
 </html>
-
-
-
-
-
-
-
