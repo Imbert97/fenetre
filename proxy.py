@@ -1,4 +1,4 @@
-import js, asyncio
+import js, asyncio 
 
 async def send_to_proxy(event=None):
     api_key = js.document.getElementById("apiKey").value.strip()
