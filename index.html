@@ -1,302 +1,63 @@
 <!DOCTYPE html>
-<html lang="fr"> 
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🌍 Météo & Rayonnement Solaire</title>
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" crossorigin=""/>
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+  <title>Analyse IA (via Proxy Flask)</title>
+  <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css">
+  <script defer src="https://pyscript.net/latest/pyscript.js"></script>
   <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f7f3ef;
-      color: #333;
-    }
-    .container {
-      max-width: 1000px;
-      margin: 20px auto;
-      padding: 20px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.1);
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 30px;
-      color: #6b4b2d;
-    }
-    h2 {
-      margin: 20px 0 10px 0;
-      color: #8d5a2b;
-    }
-    .section-card {
-      background: #faf8f5;
-      border-radius: 10px;
-      padding: 20px;
-      margin-bottom: 25px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    }
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-weight: bold;
-    }
-    input, select, button {
-      padding: 8px 12px;
-      margin: 5px 0;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      font-size: 15px;
-    }
-    button {
-      background: #deb887;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    button:hover { background: #c9a06d; }
-    #map {
-      height: 350px;
-      margin-top: 15px;
-      border-radius: 10px;
-    }
-    #solarIrradianceChart {
-      margin-top: 20px;
-      max-width: 700px;
-    }
+    body { font-family: Arial; margin: 20px; }
+    input, textarea { display:block; margin:10px 0; width:100%; padding:8px; }
+    button { padding:10px; background:#4CAF50; color:#fff; border:none; cursor:pointer; }
+    pre { background:#f4f4f4; padding:10px; white-space:pre-wrap; max-height:400px; overflow:auto; }
   </style>
 </head>
 <body>
-<div class="container">
-  <h1>🌍 Météo & Rayonnement Solaire</h1>
+  <h1>Analyse IA Perplexity (via Flask Proxy)</h1>
+  <label>Clé API :</label>
+  <input type="text" id="apiKey" placeholder="pplx-xxxxxxxx">
 
-  <!-- LOCALISATION -->
-  <section class="section-card">
-    <h2>📍 Localisation</h2>
-    <button id="getCurrentLocation">Ma position actuelle</button>
-    <div style="margin-top:10px;">
-      <label for="addressSearch">🔍 Rechercher une adresse :</label>
-      <input type="text" id="addressSearch" placeholder="Ex: Québec, Canada">
-      <button id="searchAddress">Rechercher</button>
-    </div>
-    <div id="map"></div>
-    <div style="margin-top:10px;">
-      <button id="validatePosition" style="display:none;">✅ Définir cette position</button>
-    </div>
-  </section>
+  <label>Image :</label>
+  <input type="file" id="imageUpload" accept="image/*">
 
-  <!-- ORIENTATION -->
-  <section class="section-card">
-    <h2>🧭 Orientation du mur / fenêtre</h2>
-    <label for="wallOrientation">Orientation :</label>
-    <select id="wallOrientation">
-      <option value="nord">Nord (0°)</option>
-      <option value="est">Est (90°)</option>
-      <option value="sud" selected>Sud (180°)</option>
-      <option value="ouest">Ouest (270°)</option>
-      <option value="custom">Personnalisé</option>
-    </select>
-    <div id="customAzimuthDiv" style="display:none;">
-      <label for="customAzimuth">Azimuth personnalisé (°) :</label>
-      <input type="number" id="customAzimuth" min="0" max="360" step="1">
-    </div>
-    <label for="wallTilt">Inclinaison du mur (°) :</label>
-    <input type="number" id="wallTilt" value="90" min="0" max="90">
-    <label for="albedo">Albédo du sol :</label>
-    <select id="albedo">
-      <option value="0.2" selected>Sol moyen (0.20)</option>
-      <option value="0.05">Asphalte (0.05)</option>
-      <option value="0.8">Neige (0.80)</option>
-    </select>
-    <label for="windowHeight">Hauteur fenêtre (m) :</label>
-    <input type="number" id="windowHeight" value="2" min="0" max="100">
-  </section>
+  <label>Prompt :</label>
+  <textarea id="prompt">RENVOIE UNIQUEMENT UN JSON structuré…</textarea>
 
-  <!-- MÉTÉO + SOLAIRE TEMPS RÉEL -->
-  <section class="section-card">
-    <h2>🌤️ Données en temps réel</h2>
-    <button id="startAutoFetch">🚀 Lancer la récupération</button>
-    <button id="stopAutoFetch" style="display:none;">🛑 Stopper</button>
-    <button id="copyData" style="display:none;">📋 Copier les données</button>
-    <div id="progressText" style="margin-top:10px;"></div>
-    <div id="solarResults"></div>
-    <canvas id="solarIrradianceChart"></canvas>
-  </section>
-</div>
+  <button id="sendToIA">🚀 Envoyer</button>
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-<script>
-let map, marker, lat = 46.8139, lng = -71.2080;
-let weatherData = null, solarChartInstance = null;
-let tempSelectedPosition = null;
-let autoFetchInterval = null;
-let minutesCounter = 0;
-let recordedData = [];
+  <h2>Réponse :</h2>
+  <pre id="iaResponse">En attente...</pre>
 
-function initMap() {
-  map = L.map('map').setView([lat, lng], 10);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-  marker = L.marker([lat, lng]).addTo(map).bindPopup(`📍 Position: ${lat}, ${lng}`).openPopup();
-  map.on('click', e => {
-    tempSelectedPosition = {lat: e.latlng.lat, lng: e.latlng.lng};
-    if (marker) marker.remove();
-    marker = L.marker([tempSelectedPosition.lat, tempSelectedPosition.lng]).addTo(map).bindPopup("🔍 Position sélectionnée").openPopup();
-    document.getElementById('validatePosition').style.display = 'inline-block';
-  });
-}
+  <py-script output="none">
+import js, asyncio, json
 
-function getCurrentLocation() {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(pos => {
-      lat = pos.coords.latitude;
-      lng = pos.coords.longitude;
-      map.setView([lat, lng], 12);
-      if (marker) marker.remove();
-      marker = L.marker([lat, lng]).addTo(map).bindPopup("📍 Votre position").openPopup();
-    });
-  }
-}
+async def send_to_proxy(event=None):
+    api_key = js.document.getElementById("apiKey").value.strip()
+    file_input = js.document.getElementById("imageUpload")
+    prompt = js.document.getElementById("prompt").value
+    out = js.document.getElementById("iaResponse")
 
-async function searchAddress() {
-  const addr = document.getElementById('addressSearch').value.trim();
-  if (!addr) return;
-  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1`);
-  const data = await res.json();
-  if (data.length > 0) {
-    tempSelectedPosition = {lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon)};
-    map.setView([tempSelectedPosition.lat, tempSelectedPosition.lng], 12);
-    if (marker) marker.remove();
-    marker = L.marker([tempSelectedPosition.lat, tempSelectedPosition.lng]).addTo(map).bindPopup(data[0].display_name).openPopup();
-    document.getElementById('validatePosition').style.display = 'inline-block';
-  }
-}
+    if not api_key or file_input.files.length == 0:
+        out.textContent = "⚠️ Fournis ta clé API et une image !"
+        return
 
-function validatePosition() {
-  if (!tempSelectedPosition) return;
-  lat = tempSelectedPosition.lat;
-  lng = tempSelectedPosition.lng;
-  map.setView([lat, lng], 12);
-  if (marker) marker.remove();
-  marker = L.marker([lat, lng]).addTo(map).bindPopup("✅ Position validée").openPopup();
-  document.getElementById('validatePosition').style.display = 'none';
-}
+    file = file_input.files.item(0)
+    form_data = js.FormData.new()
+    form_data.append("apiKey", api_key)
+    form_data.append("prompt", prompt)
+    form_data.append("image", file)
 
-function orientationToAzimuth(o) {
-  return { nord:0, est:90, sud:180, ouest:270 }[o] || 180;
-}
+    try:
+        resp = await js.fetch("http://localhost:5000/api/analyse", {
+            "method": "POST",
+            "body": form_data
+        })
+        text = await resp.text()
+        out.textContent = text
+    except Exception as e:
+        out.textContent = f"❌ Erreur : {e}"
 
-function cosd(d) { return Math.cos(d*Math.PI/180); }
-
-function calculateAngleOfIncidence(surfaceTilt, surfaceAzimuth, solarZenith, solarAzimuth) {
-  const tilt = surfaceTilt * Math.PI/180;
-  const surfAz = surfaceAzimuth * Math.PI/180;
-  const zen = solarZenith * Math.PI/180;
-  const solAz = solarAzimuth * Math.PI/180;
-  const cosInc = Math.sin(zen)*Math.sin(tilt)*Math.cos(solAz-surfAz)+Math.cos(zen)*Math.cos(tilt);
-  return Math.acos(Math.max(-1, Math.min(1, cosInc)))*180/Math.PI;
-}
-
-function calculateSolarPosition(date) {
-  const phi = lat*Math.PI/180;
-  const n = (date/86400000 + 2440587.5) - 2451545.0;
-  const L = (280.46 + 0.9856474*n)%360;
-  const g = (357.528 + 0.9856003*n)%360 * Math.PI/180;
-  const lambda = (L + 1.915*Math.sin(g) + 0.02*Math.sin(2*g))*Math.PI/180;
-  const delta = Math.asin(Math.sin(23.439*Math.PI/180)*Math.sin(lambda));
-  const H = ((date.getUTCHours()+date.getUTCMinutes()/60)+(lng/15)-12)*15*Math.PI/180;
-  const elev = Math.asin(Math.sin(phi)*Math.sin(delta)+Math.cos(phi)*Math.cos(delta)*Math.cos(H));
-  let az = Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(phi)-Math.tan(delta)*Math.cos(phi));
-  az = (az*180/Math.PI+180)%360;
-  return { zenith:90-elev*180/Math.PI, azimuth:az };
-}
-
-async function fetchAndDisplay() {
-  const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,shortwave_radiation,direct_radiation,diffuse_radiation&timezone=auto`);
-  weatherData = await res.json();
-  displaySolarCalculation();
-}
-
-function displaySolarCalculation() {
-  const orientation = document.getElementById('wallOrientation').value;
-  const tilt = parseFloat(document.getElementById('wallTilt').value);
-  const albedo = parseFloat(document.getElementById('albedo').value);
-  const h = parseFloat(document.getElementById('windowHeight').value);
-  let azimuth = orientationToAzimuth(orientation);
-  if (orientation === 'custom') {
-    azimuth = parseFloat(document.getElementById('customAzimuth').value)||180;
-  }
-
-  const now = new Date();
-  const solarPos = calculateSolarPosition(now);
-  const aoi = calculateAngleOfIncidence(tilt, azimuth, solarPos.zenith, solarPos.azimuth);
-  const GHI = weatherData.current.shortwave_radiation||800;
-  const DNI = weatherData.current.direct_radiation||900;
-  const DHI = weatherData.current.diffuse_radiation||100;
-  let direct = aoi<90? DNI*Math.max(0, cosd(aoi)):0;
-  let diffuse = DHI*(1+cosd(tilt))/2;
-  let reflected = GHI*albedo*(1-cosd(tilt))/2*Math.exp(-0.2*Math.max(0,h-2));
-  let total = direct+diffuse+reflected;
-
-  recordedData.push({time: now.toLocaleTimeString(), temp: weatherData.current.temperature_2m, flux: total.toFixed(1)});
-
-  document.getElementById('solarResults').innerHTML = `<p>🌡 Température: ${weatherData.current.temperature_2m} °C<br><b>Total flux:</b> ${total.toFixed(1)} W/m²</p>`;
-  document.getElementById('progressText').textContent = `Minutes enregistrées: ${minutesCounter}`;
-
-  const ctx = document.getElementById('solarIrradianceChart').getContext('2d');
-  if (solarChartInstance) solarChartInstance.destroy();
-  solarChartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: { labels: ['Direct','Diffus','Réfléchi','Total'], datasets:[{ data:[direct,diffuse,reflected,total], backgroundColor:['#ff9800','#03a9f4','#8bc34a','#673ab7'] }]},
-    options:{ plugins:{legend:{display:false}} }
-  });
-}
-
-function startAutoFetch() {
-  document.getElementById('startAutoFetch').style.display = 'none';
-  document.getElementById('stopAutoFetch').style.display = 'inline-block';
-  document.getElementById('copyData').style.display = 'inline-block';
-  minutesCounter = 0;
-  recordedData = [];
-  autoFetchInterval = setInterval(()=>{
-    fetchAndDisplay();
-    minutesCounter++;
-    document.getElementById('progressText').textContent = `Minutes enregistrées: ${minutesCounter}`;
-  },60000);
-  fetchAndDisplay();
-}
-
-function stopAutoFetch() {
-  clearInterval(autoFetchInterval);
-  document.getElementById('startAutoFetch').style.display = 'inline-block';
-  document.getElementById('stopAutoFetch').style.display = 'none';
-}
-
-function copyData() {
-  let text = recordedData.map(d => `${d.time} | Temp: ${d.temp}°C | Flux: ${d.flux} W/m²`).join("\n");
-  navigator.clipboard.writeText(text).then(()=>{
-    alert("📋 Données copiées dans le presse-papier !");
-  });
-}
-
-// --- INIT ---
-document.addEventListener('DOMContentLoaded',()=>{
-  initMap();
-  document.getElementById('getCurrentLocation').addEventListener('click',getCurrentLocation);
-  document.getElementById('searchAddress').addEventListener('click',searchAddress);
-  document.getElementById('validatePosition').addEventListener('click',validatePosition);
-  document.getElementById('startAutoFetch').addEventListener('click',startAutoFetch);
-  document.getElementById('stopAutoFetch').addEventListener('click',stopAutoFetch);
-  document.getElementById('copyData').addEventListener('click',copyData);
-  document.getElementById('wallOrientation').addEventListener('change',()=>{
-    document.getElementById('customAzimuthDiv').style.display = (document.getElementById('wallOrientation').value==='custom')? 'block':'none';
-  });
-});
-</script>
+js.document.getElementById("sendToIA").addEventListener("click", send_to_proxy)
+  </py-script>
 </body>
 </html>
