@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" crossorigin=""/>
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <style>
     body {
       margin: 0;
@@ -45,12 +44,14 @@
       margin-bottom: 6px;
       font-weight: bold;
     }
-    input, select, button {
+    input, select, button, textarea {
       padding: 8px 12px;
       margin: 5px 0;
       border-radius: 6px;
       border: 1px solid #ccc;
       font-size: 15px;
+      width: 100%;
+      box-sizing: border-box;
     }
     button {
       background: #deb887;
@@ -58,6 +59,7 @@
       border: none;
       cursor: pointer;
       font-weight: bold;
+      width: auto;
     }
     button:hover { background: #c9a06d; }
     #map {
@@ -69,12 +71,29 @@
       margin-top: 20px;
       max-width: 700px;
     }
+    .code-box {
+      background: #f4f0eb;
+      border: 1px solid #ddd;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      white-space: pre-wrap;
+      font-family: Consolas, monospace;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    #previsionsChart {
+      margin-top: 20px;
+      width: 100%;
+      height: 350px;
+    }
+
   </style>
 </head>
 <body>
 <div class="container">
   <h1>🌍 Météo & Rayonnement Solaire</h1>
-
+  
   <!-- LOCALISATION -->
   <section class="section-card">
     <h2>📍 Localisation</h2>
@@ -89,7 +108,7 @@
       <button id="validatePosition" style="display:none;">✅ Définir cette position</button>
     </div>
   </section>
-
+  
   <!-- ORIENTATION -->
   <section class="section-card">
     <h2>🧭 Orientation du mur / fenêtre</h2>
@@ -115,9 +134,23 @@
     </select>
     <label for="windowHeight">Hauteur fenêtre (m) :</label>
     <input type="number" id="windowHeight" value="2" min="0" max="100">
+    
+    <!-- Confirmation orientation complète -->
+    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin-top: 20px;">
+      <h3>📐 Validation des paramètres d'orientation</h3>
+      <div id="resumeOrientation" style="margin-bottom: 15px; font-family: monospace; font-size: 14px;">
+        <strong>Configuration actuelle :</strong><br>
+        <span id="orientationDisplay">Sud (180°)</span><br>
+        <span id="albedoDisplay">Albédo : Sol moyen (0.20)</span><br>
+        <span id="hauteurDisplay">Hauteur fenêtre : 2 m</span><br>
+        <span id="inclinaisonDisplay">Inclinaison : 90°</span>
+      </div>
+      <button id="confirmOrientation" onclick="confirmerOrientationComplete()">✅ Confirmer tous les paramètres</button>
+      <span id="orientationStatus" style="margin-left: 10px; color: #e17055;">⚠️ Non confirmée</span>
+    </div>
   </section>
-
-  <!-- MÉTÉO + SOLAIRE TEMPS RÉEL -->
+  
+  <!-- MÉTÉO + SOLAIRE -->
   <section class="section-card">
     <h2>🌤️ Données en temps réel</h2>
     <button id="startAutoFetch">🚀 Lancer la récupération</button>
@@ -126,6 +159,295 @@
     <div id="progressText" style="margin-top:10px;"></div>
     <div id="solarResults"></div>
     <canvas id="solarIrradianceChart"></canvas>
+  </section>
+  
+  <!-- PROMPT PERPLEXITY -->
+  <section class="section-card">
+    <h2>📝 Prompt & Résultats Perplexity</h2>
+    <p><b>1.</b> Copie ce prompt : </p>
+    <div class="code-box" id="promptBox">
+RENVOIE UNIQUEMENT UN JSON
+RÔLE ET OBJECTIF
+Tu es un expert en analyse d'images et en physique des matériaux.
+À partir de l'image fournie, tu dois identifier les principaux éléments
+d'une pièce et restituer leurs propriétés thermiques en t'appuyant
+STRICTEMENT sur le référentiel de matériaux ci-dessous.
+
+RÉFÉRENTIEL DE MATÉRIAUX AUTORISÉS
+(pour chaque matériau, tu dois reprendre EXACTEMENT le nom, la
+capacité thermique massique et l'albédo ; ils sont invariables)
+
+1.  Plâtre (Mur blanc)                 — cp : 1090 J kg⁻¹ K⁻¹,  albedo : 0.85
+2.  Brique (rouge)                     — cp : 840,             albedo : 0.30
+3.  Béton (brut)                       — cp : 880,             albedo : 0.35
+4.  Verre (fenêtre/table)              — cp : 840,             albedo : 0.10
+5.  Bois (Chêne)                       — cp : 2380,            albedo : 0.40
+6.  Bois (Pin)                         — cp : 2800,            albedo : 0.50
+7.  Contreplaqué (Plywood)             — cp : 1700,            albedo : 0.55
+8.  MDF (Panneau de fibres)            — cp : 1700,            albedo : 0.60
+9.  Aluminium (brut)                   — cp : 900,             albedo : 0.65
+10. Acier Inoxydable                  — cp : 500,             albedo : 0.60
+11. Cuivre                             — cp : 385,             albedo : 0.70
+12. Laiton (Brass)                     — cp : 380,             albedo : 0.60
+13. Plastique (PVC blanc)              — cp : 900,             albedo : 0.75
+14. Plastique (ABS noir)               — cp : 1400,            albedo : 0.05
+15. Acrylique (Plexiglass)             — cp : 1470,            albedo : 0.15
+16. Tissu (Coton blanc)                — cp : 1300,            albedo : 0.70
+17. Tissu (Laine foncée)               — cp : 1700,            albedo : 0.10
+18. Tissu (Polyester)                  — cp : 1350,            albedo : 0.45
+19. Cuir (marron)                      — cp : 1500,            albedo : 0.25
+20. Céramique (blanche)                — cp : 1000,            albedo : 0.80
+21. Marbre (blanc)                     — cp : 880,             albedo : 0.75
+22. Granit                             — cp : 790,             albedo : 0.30
+23. Caoutchouc (noir)                  — cp : 2000,            albedo : 0.05
+24. Papier/Carton                      — cp : 1400,            albedo : 0.60
+25. Sol (Terre cuite)                  — cp : 878,             albedo : 0.35
+26. Sol (Parquet chêne)                — cp : 2380,            albedo : 0.40
+27. Sol (Moquette épaisse)             — cp : 1400,            albedo : 0.20
+28. Sol (Carrelage céramique)          — cp : 1000,            albedo : 0.65
+29. Métal (Peint en noir)              — cp : 480,             albedo : 0.05
+30. Liège                              — cp : 1880,            albedo : 0.35
+31. Bambou                             — cp : 2000,            albedo : 0.45
+32. Laine de verre (isolant)           — cp : 700,             albedo : 0.75
+33. Polycarbonate                      — cp : 1200,            albedo : 0.20
+34. Eau (dans un vase/aquarium)        — cp : 4186,            albedo : 0.08
+35. Argent                             — cp : 235,             albedo : 0.90
+36. Or                                 — cp : 129,             albedo : 0.80
+37. Zinc                               — cp : 389,             albedo : 0.55
+38. Polystyrène expansé (isolant)      — cp : 1300,            albedo : 0.90
+39. Plomb                              — cp : 130,             albedo : 0.40
+40. Soie                               — cp : 1450,            albedo : 0.55
+
+INSTRUCTIONS CLÉS
+1. Analyse d'abord les éléments structurels (sol, murs, plafond, portes), si tu vois plusieurs murs tu dois l'indiquer, fenêtres exclues.
+2. Puis analyse au maximum 8 objets de mobilier dominants présents dans l'image, je veux EXCLURE les rideaux et tout mobilier faisant réference à un balcon.
+3. Pour chaque élément, sélectionne le matériau le plus plausible dans le référentiel et
+   conserve EXACTEMENT ses valeurs cp_JkgK et albedo.
+4. Estime masse_kg et surface_visible_m2 de l'objet (utilise null si impossible).
+5. En fonction de la disposition de la piece les objets vont cacher la surface d'autre objet, je veut donc que tu utilise l'estimation de surface_visible_m2
+   pour faire des soustraction adapter, par exemple si une table de 2m^2 est sur un tapis de 4m^2 la surface du tapis exposé au soleil sera de 2m^2
+
+FORMAT DE SORTIE (OBLIGATOIRE)
+Renvoyer un objet JSON UNIQUE avec ces 6 champs, chacun étant un tableau (même longueur N) :
+  "labels"   : [noms clairs des éléments]
+  "types"    : ["structurel" | "mobilier"]
+  "mass_kg"  : [nombre ou null]
+  "cp_JkgK"  : [valeur exacte du référentiel]
+  "area_m2_1"  : [surface objet]
+  "area_m2"  : [surface exposé au soleil]
+  "albedo"   : [valeur exacte du référentiel]
+
+Exemple :
+
+{
+  "labels"  : ["Mur principal", "Sol", "Lit double"],
+  "types"   : ["structurel", "structurel", "mobilier"],
+  "mass_kg" : [450, 350, 120],
+  "cp_JkgK" : [1090, 2380, 1350],
+  "area_m2_1" : [28.5, 16.0, 4.2],
+  "area_m2" : [20.5, 9.0, 4.2],
+  "albedo"  : [0.85, 0.40, 0.45]
+}
+
+RENVOIE UNIQUEMENT CE JSON, NE RENVOIE PAS TON RAISONNEMENT, SANS TEXTE SUPPLÉMENTAIRE, ET SURTOUT SANS AUCUNE BALISE (PAS DE ``````, PAS DE balise Markdown).
+    </div>
+    <button onclick="copyPrompt()">📋 Copier le prompt</button>
+    <a href="https://www.perplexity.ai/" target="_blank">
+      🌐 Ouvrir Perplexity
+    </a>
+    
+    <p style="margin-top:15px;"><b>2.</b> Colle ici le résultat JSON que l'IA te renvoie :</p>
+    <textarea id="resultBox" rows="10" placeholder="👉 Colle ici ton vecteur JSON de sortie..."></textarea>
+    <button onclick="copyResult()">📋 Copier le JSON</button>
+  </section>
+
+  <!-- PARAMÈTRES THERMIQUES -->
+  <section class="section-card">
+    <h2>🏠 Paramètres thermiques de la maison</h2>
+
+    <!-- Isolation murs -->
+    <label for="isolationMur">Isolation des murs :</label>
+    <select id="isolationMur">
+      <option value="0.5">Très bien isolée (U = 0.5 W/m²K)</option>
+      <option value="1.0">Isolation moyenne (U = 1.0 W/m²K)</option>
+      <option value="2.0">Mal isolée (U = 2.0 W/m²K)</option>
+    </select>
+
+    <!-- Isolation fenêtres -->
+    <label for="isolationFenetre">Isolation des fenêtres :</label>
+    <select id="isolationFenetre">
+      <option value="1.2">Très bien isolée (triple vitrage, U = 1.2 W/m²K)</option>
+      <option value="2.8">Isolation moyenne (double vitrage, U = 2.8 W/m²K)</option>
+      <option value="5.5">Mal isolée (simple vitrage, U = 5.5 W/m²K)</option>
+    </select>
+    <!-- Coefficient de réflexion des fenêtres -->
+    <label for="coeffReflexionFenetre">Coefficient de réflexion des fenêtres (ρ) :</label>
+    <select id="coeffReflexionFenetre">
+      <option value="0.08">Verre standard (ρ = 0.08)</option>
+      <option value="0.15">Verre teinté (ρ = 0.15)</option>
+      <option value="0.25">Verre réfléchissant (ρ = 0.25)</option>
+      <option value="0.35">Verre à contrôle solaire (ρ = 0.35)</option>
+    </select>
+
+    <!-- Rideaux : transmission solaire (tau) -->
+    <label for="tauRideau">Transmission solaire des rideaux (τ) :</label>
+    <select id="tauRideau">
+      <option value="0.1">Opaque (τ = 0.1)</option>
+      <option value="0.3">Semi-transparent (τ = 0.3)</option>
+      <option value="0.6">Très transparent (τ = 0.6)</option>
+    </select>
+
+    <!-- Rideaux : conduction (facteur) -->
+    <label for="fCondRideau">Facteur de conduction des rideaux :</label>
+    <select id="fCondRideau">
+      <option value="0.2">Très isolant (0.2)</option>
+      <option value="0.5">Moyen (0.5)</option>
+      <option value="0.8">Peu isolant (0.8)</option>
+    </select>
+
+    <!-- Efficacité échangeur -->
+    <label for="efficaciteEchangeur">Efficacité de l'échangeur :</label>
+    <select id="efficaciteEchangeur">
+      <option value="0.85">Très efficace (85%)</option>
+      <option value="0.6">Efficacité moyenne (60%)</option>
+      <option value="0.3">Peu efficace (30%)</option>
+    </select>
+
+    <!-- Renouvellement d'air -->
+    <label for="nAir">Renouvellement d'air (vol/h) :</label>
+    <select id="nAir">
+      <option value="0.3">Faible (0.3 vol/h)</option>
+      <option value="0.6">Moyen (0.6 vol/h)</option>
+      <option value="1.0">Élevé (1.0 vol/h)</option>
+    </select>
+
+    <!-- Paramètres fixes de la maison -->
+    <h3 style="margin-top:20px;">📐 Dimensions</h3>
+    <label for="surfaceFenetre">Surface totale des fenêtres (m²) :</label>
+    <input type="number" id="surfaceFenetre" value="5.076" step="0.01">
+
+    <label for="surfaceTotale">Surface totale en contact avec l'extérieur (m²) :</label>
+    <input type="number" id="surfaceTotale" value="10.647" step="0.01">
+
+    <label for="volumePiece">Volume de la pièce (m³) :</label>
+    <input type="number" id="volumePiece" value="75" step="0.1">
+  </section>
+
+  <!-- CALCULS MODÈLE 2 CORPS -->
+  <section class="section-card" id="modele2corps">
+    <h2>📊 Modèle 2 corps – Calculs</h2>
+    <button onclick="calculerModele2Corps()">⚡ Calculer les paramètres</button>
+    <div id="resultatsModele2Corps" style="margin-top:15px; white-space: pre-line; font-family: monospace;"></div>
+  </section>
+
+  <!-- SIMULATION HORAIRE -->
+  <section class="section-card">
+    <h2>⏰ Simulation horaire - Prévisions</h2>
+    
+    <!-- Paramètres initiaux avec contexte amélioré -->
+    <div style="background: #e3f2fd; border: 1px solid #90caf9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+      <h3>🌡️ Températures de départ</h3>
+      <p style="margin-bottom: 15px; color: #1565c0;">
+        <strong>📝 Instructions :</strong> Entrez les températures actuelles pour commencer la simulation. 
+        Ces valeurs représentent l'état <em>maintenant</em> avant la prévision.
+      </p>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div style="background: white; padding: 15px; border-radius: 6px;">
+          <label for="tempMasseInit" style="color: #d32f2f; font-weight: bold;">
+            🏠 Température des objets/murs (°C) :
+          </label>
+          <input type="number" id="tempMasseInit" value="20" step="0.1" style="margin-top: 5px;">
+          <small style="color: #666; display: block; margin-top: 5px;">
+            💡 Température des meubles, murs, objets solides
+          </small>
+        </div>
+        
+        <div style="background: white; padding: 15px; border-radius: 6px;">
+          <label for="tempAirInit" style="color: #1976d2; font-weight: bold;">
+            💨 Température de l'air intérieur (°C) :
+          </label>
+          <input type="number" id="tempAirInit" value="20" step="0.1" style="margin-top: 5px;">
+          <small style="color: #666; display: block; margin-top: 5px;">
+            💡 Température de l'air que vous ressentez
+          </small>
+        </div>
+      </div>
+      
+      <div style="margin-top: 15px; padding: 10px; background: #fff9c4; border-radius: 4px;">
+        <strong>🤔 Comment choisir ces valeurs ?</strong><br>
+        • <strong>Première simulation :</strong> Utilisez la température actuelle de votre pièce<br>
+        • <strong>Simulations suivantes :</strong> Les valeurs se mettent à jour automatiquement
+      </div>
+    </div>
+
+    <!-- Contrôles simulation avec workflow -->
+    <div style="background: #f3e5f5; border: 1px solid #ce93d8; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+      <h3>⚡ Simulation pas à pas</h3>
+      
+      <!-- Indicateur d'étape -->
+      <div id="etapeIndicateur" style="margin-bottom: 20px; padding: 10px; border-radius: 6px; font-weight: bold; text-align: center;">
+        📊 Étape 1/3 : Configuration des températures initiales
+      </div>
+      
+      <!-- Boutons avec indications contextuelles -->
+      <div style="margin-bottom: 20px;">
+        <button id="btnPrevoir" onclick="simulerHeureActuelle()" style="font-size: 16px; padding: 12px 20px;">
+          🔮 Étape 2 : Calculer les prévisions pour l'heure suivante
+        </button>
+        <div id="infoPrevoir" style="margin-top: 10px; color: #4a148c; font-style: italic;">
+          💡 Ceci va calculer comment la température évoluera dans l'heure qui vient avec les deux options de rideau
+        </div>
+        
+        <button id="btnValider" onclick="validerEtContinuer()" style="display:none; font-size: 16px; padding: 12px 20px; margin-top: 10px;">
+          ✅ Étape 3 : Valider mon choix et passer à l'heure suivante
+        </button>
+        <div id="infoValider" style="display:none; margin-top: 10px; color: #2e7d32; font-style: italic;">
+          💡 Choisissez si vous ouvrez ou fermez le rideau, puis validez pour continuer
+        </div>
+      </div>
+      
+      <!-- Mode rideau avec contexte -->
+      <div id="choixRideaux" style="display:none; background: white; padding: 15px; border-radius: 6px;">
+        <label style="font-weight: bold; color: #6a1b9a;">🎚️ Votre décision pour cette heure :</label>
+        <select id="modeRideau" style="margin-top: 5px;">
+          <option value="ouvert">🌞 Rideau ouvert (laisser entrer le soleil)</option>
+          <option value="ferme">🏠 Rideau fermé (bloquer le soleil)</option>
+        </select>
+        <small style="display: block; margin-top: 5px; color: #666;">
+          Regardez le graphique ci-dessous pour voir l'impact de chaque choix
+        </small>
+      </div>
+    </div>
+
+    <!-- Informations état -->
+    <div id="infoSimulation" style="background: #f8f9fa; padding: 10px; border-radius: 6px; margin-bottom: 15px;">
+      <strong>État actuel :</strong> Heure 0 - Prêt à commencer
+    </div>
+
+    <!-- Graphique prévisions -->
+    <canvas id="previsionsChart" style="margin-top: 20px;"></canvas>
+    
+    <!-- Résultats détaillés -->
+    <div id="resultatsSimulation" style="margin-top: 15px; white-space: pre-line; font-family: monospace;"></div>
+  </section>
+    <div id="sectionTempReelle" style="display:none; background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin-top: 15px;">
+      <h4>🌡️ Correction température réelle</h4>
+      <p style="margin-bottom: 10px; color: #856404;">
+        Si vous avez mesuré la température réelle, entrez-la ici pour corriger les prévisions suivantes :
+      </p>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label for="inputTempReelle" style="margin: 0;">Température mesurée (°C) :</label>
+        <input type="number" id="inputTempReelle" step="0.1" min="-50" max="80" 
+               placeholder="Ex: 21.5" style="width: 120px;">
+        <button id="btnValiderTempReelle">✅ Valider température réelle</button>
+      </div>
+      
+      <small style="display: block; margin-top: 8px; color: #666;">
+        💡 Cette température sera utilisée comme point de départ pour l'heure suivante
+      </small>
+    </div>
   </section>
 </div>
 
@@ -139,6 +461,7 @@ let autoFetchInterval = null;
 let minutesCounter = 0;
 let recordedData = [];
 
+// === Carte / Localisation ===
 function initMap() {
   map = L.map('map').setView([lat, lng], 10);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -150,7 +473,6 @@ function initMap() {
     document.getElementById('validatePosition').style.display = 'inline-block';
   });
 }
-
 function getCurrentLocation() {
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(pos => {
@@ -162,7 +484,6 @@ function getCurrentLocation() {
     });
   }
 }
-
 async function searchAddress() {
   const addr = document.getElementById('addressSearch').value.trim();
   if (!addr) return;
@@ -176,7 +497,6 @@ async function searchAddress() {
     document.getElementById('validatePosition').style.display = 'inline-block';
   }
 }
-
 function validatePosition() {
   if (!tempSelectedPosition) return;
   lat = tempSelectedPosition.lat;
@@ -187,12 +507,8 @@ function validatePosition() {
   document.getElementById('validatePosition').style.display = 'none';
 }
 
-function orientationToAzimuth(o) {
-  return { nord:0, est:90, sud:180, ouest:270 }[o] || 180;
-}
-
+// === CALCUL SOLAIRE ===
 function cosd(d) { return Math.cos(d*Math.PI/180); }
-
 function calculateAngleOfIncidence(surfaceTilt, surfaceAzimuth, solarZenith, solarAzimuth) {
   const tilt = surfaceTilt * Math.PI/180;
   const surfAz = surfaceAzimuth * Math.PI/180;
@@ -201,7 +517,9 @@ function calculateAngleOfIncidence(surfaceTilt, surfaceAzimuth, solarZenith, sol
   const cosInc = Math.sin(zen)*Math.sin(tilt)*Math.cos(solAz-surfAz)+Math.cos(zen)*Math.cos(tilt);
   return Math.acos(Math.max(-1, Math.min(1, cosInc)))*180/Math.PI;
 }
-
+function orientationToAzimuth(o) {
+  return { nord:0, est:90, sud:180, ouest:270 }[o] || 180;
+}
 function calculateSolarPosition(date) {
   const phi = lat*Math.PI/180;
   const n = (date/86400000 + 2440587.5) - 2451545.0;
@@ -221,7 +539,6 @@ async function fetchAndDisplay() {
   weatherData = await res.json();
   displaySolarCalculation();
 }
-
 function displaySolarCalculation() {
   const orientation = document.getElementById('wallOrientation').value;
   const tilt = parseFloat(document.getElementById('wallTilt').value);
@@ -231,7 +548,6 @@ function displaySolarCalculation() {
   if (orientation === 'custom') {
     azimuth = parseFloat(document.getElementById('customAzimuth').value)||180;
   }
-
   const now = new Date();
   const solarPos = calculateSolarPosition(now);
   const aoi = calculateAngleOfIncidence(tilt, azimuth, solarPos.zenith, solarPos.azimuth);
@@ -242,12 +558,8 @@ function displaySolarCalculation() {
   let diffuse = DHI*(1+cosd(tilt))/2;
   let reflected = GHI*albedo*(1-cosd(tilt))/2*Math.exp(-0.2*Math.max(0,h-2));
   let total = direct+diffuse+reflected;
-
   recordedData.push({time: now.toLocaleTimeString(), temp: weatherData.current.temperature_2m, flux: total.toFixed(1)});
-
   document.getElementById('solarResults').innerHTML = `<p>🌡 Température: ${weatherData.current.temperature_2m} °C<br><b>Total flux:</b> ${total.toFixed(1)} W/m²</p>`;
-  document.getElementById('progressText').textContent = `Minutes enregistrées: ${minutesCounter}`;
-
   const ctx = document.getElementById('solarIrradianceChart').getContext('2d');
   if (solarChartInstance) solarChartInstance.destroy();
   solarChartInstance = new Chart(ctx, {
@@ -270,22 +582,1073 @@ function startAutoFetch() {
   },60000);
   fetchAndDisplay();
 }
-
 function stopAutoFetch() {
   clearInterval(autoFetchInterval);
   document.getElementById('startAutoFetch').style.display = 'inline-block';
   document.getElementById('stopAutoFetch').style.display = 'none';
 }
-
 function copyData() {
   let text = recordedData.map(d => `${d.time} | Temp: ${d.temp}°C | Flux: ${d.flux} W/m²`).join("\n");
-  navigator.clipboard.writeText(text).then(()=>{
-    alert("📋 Données copiées dans le presse-papier !");
+  navigator.clipboard.writeText(text).then(()=>alert("📋 Données copiées dans le presse-papier !"));
+}
+
+// === PROMPT / COPIER ===
+function copyPrompt(){
+  const text = document.getElementById("promptBox").innerText;
+  navigator.clipboard.writeText(text).then(()=>alert("✅ Prompt copié !"));
+}
+function copyResult(){
+  const text = document.getElementById("resultBox").value;
+  navigator.clipboard.writeText(text).then(()=>alert("✅ Résultat JSON copié !"));
+}
+
+// === GESTION DU WORKFLOW ÉTAPES ===
+function mettreAJourEtapeIndicateur(etape) {
+  const indicateur = document.getElementById('etapeIndicateur');
+  const infoPrevoir = document.getElementById('infoPrevoir');
+  const infoValider = document.getElementById('infoValider');
+  const choixRideaux = document.getElementById('choixRideaux');
+  
+  switch(etape) {
+    case 1:
+      indicateur.textContent = '📊 Étape 1/3 : Configuration des températures initiales';
+      indicateur.style.background = '#e3f2fd';
+      infoPrevoir.style.display = 'block';
+      infoValider.style.display = 'none';
+      choixRideaux.style.display = 'none';
+      break;
+      
+    case 2:
+      indicateur.textContent = '🔮 Étape 2/3 : Analyse des prévisions en cours...';
+      indicateur.style.background = '#fff3e0';
+      infoPrevoir.style.display = 'none';
+      break;
+      
+    case 3:
+      indicateur.textContent = '✅ Étape 3/3 : Choisissez votre décision et validez';
+      indicateur.style.background = '#e8f5e8';
+      infoValider.style.display = 'block';
+      choixRideaux.style.display = 'block';
+      break;
+      
+    case 4:
+      indicateur.textContent = `🎯 Heure ${simulationState.heure} terminée ! Prêt pour l'heure suivante`;
+      indicateur.style.background = '#f3e5f5';
+      infoValider.style.display = 'none';
+      choixRideaux.style.display = 'none';
+      break;
+  }
+}
+
+// === CALCUL MODÈLE 2 CORPS ===
+function calculerModele2Corps() {
+  // Constantes physiques
+  const P_ATM = 101325; // Pa
+  const R_AIR = 287.05; // J·kg⁻¹·K⁻¹
+  const AIR_CP = 1005; // J·kg⁻¹·K⁻¹
+  const AIR_T_INIT = 20; // °C
+  const h_conv = 5.0; // W·m⁻²·K⁻¹
+
+  try {
+    // Récupération des paramètres thermiques
+    const U_murs = parseFloat(document.getElementById('isolationMur').value);
+    const U_fenetres = parseFloat(document.getElementById('isolationFenetre').value);
+    const tau_rideau = parseFloat(document.getElementById('tauRideau').value);
+    const f_cond_rideau = parseFloat(document.getElementById('fCondRideau').value);
+    const efficacite_echangeur = parseFloat(document.getElementById('efficaciteEchangeur').value);
+    const n_air = parseFloat(document.getElementById('nAir').value);
+    
+    // Dimensions
+    const surface_fenetre = parseFloat(document.getElementById('surfaceFenetre').value);
+    const S_totale = parseFloat(document.getElementById('surfaceTotale').value);
+    const volume = parseFloat(document.getElementById('volumePiece').value);
+    
+    // Surfaces
+    const S_murs = S_totale - surface_fenetre;
+    const S_fenetres = surface_fenetre;
+    
+    // Parsing du JSON des objets
+    const jsonText = document.getElementById('resultBox').value.trim();
+    if (!jsonText) {
+      throw new Error("Veuillez d'abord coller le JSON des objets de la pièce");
+    }
+    
+    const result = JSON.parse(jsonText);
+    
+    // Vérification des données
+    if (!result.labels || !result.mass_kg || !result.cp_JkgK || !result.area_m2 || !result.albedo) {
+      throw new Error("Format JSON invalide - vérifiez les champs requis");
+    }
+    
+    // ===== CALCULS PRINCIPALES =====
+    
+    // Densité et masse de l'air
+    const rho_air = P_ATM / (R_AIR * (AIR_T_INIT + 273.15));
+    const AIR_MASS = rho_air * volume;
+    const m_dot_air = rho_air * volume * n_air / 3600; // kg/s
+    
+    // Conductances thermiques
+    const conductance_murs = U_murs * S_murs;
+    const conductance_fenetres = U_fenetres * S_fenetres;
+    const conductance_totale = conductance_murs + conductance_fenetres;
+    const conductance_air = m_dot_air * AIR_CP;
+    
+    // Conductance avec rideau
+    const U_fenetres_eff = U_fenetres * f_cond_rideau;
+    const conductance_totale_eff = U_murs * S_murs + U_fenetres_eff * S_fenetres;
+    
+    // Coefficient de perte global pondéré
+    const U_loss_global = (U_murs * S_murs + U_fenetres * S_fenetres) / S_totale;
+    
+    // ===== PARAMÈTRES MODÈLE 2 CORPS =====
+    
+    // Traitement des masses (remplacer null par 1.0)
+    const masses_obj = result.mass_kg.map(m => m !== null ? m : 1.0);
+    
+    // Capacité thermique du super-objet (C1)
+    let C1 = 0;
+    for (let i = 0; i < masses_obj.length; i++) {
+      C1 += masses_obj[i] * result.cp_JkgK[i];
+    }
+    
+    // Capacité thermique de l'air (C2)
+    const C2 = AIR_MASS * AIR_CP;
+    
+    // Surface totale des objets (A1)
+    const A1 = result.area_m2.reduce((sum, area) => sum + area, 0);
+    
+    // Albédo équivalent (α_eq)
+    let numerateur_albedo = 0;
+    for (let i = 0; i < result.albedo.length; i++) {
+      numerateur_albedo += result.albedo[i] * result.area_m2[i];
+    }
+    const alpha_eq = A1 > 0 ? numerateur_albedo / A1 : 0;
+    
+    // Température initiale pondérée du super-objet (T1_0)
+    let numerateur_temp = 0;
+    for (let i = 0; i < masses_obj.length; i++) {
+      numerateur_temp += masses_obj[i] * result.cp_JkgK[i] * AIR_T_INIT;
+    }
+    const T1_0 = C1 > 0 ? numerateur_temp / C1 : AIR_T_INIT;
+    
+    // ===== AFFICHAGE DES RÉSULTATS =====
+    let output = `=== PARAMÈTRES THERMIQUES DE LA MAISON ===
+    
+ISOLATION:
+• Murs: U = ${U_murs} W/m²K, Surface = ${S_murs.toFixed(1)} m²
+• Fenêtres: U = ${U_fenetres} W/m²K, Surface = ${S_fenetres.toFixed(1)} m²
+• Coefficient global: U_loss = ${U_loss_global.toFixed(3)} W/m²K
+
+CONDUCTANCES:
+• Murs: ${conductance_murs.toFixed(1)} W/K
+• Fenêtres: ${conductance_fenetres.toFixed(1)} W/K
+• Total (sans rideau): ${conductance_totale.toFixed(1)} W/K
+• Total (avec rideau): ${conductance_totale_eff.toFixed(1)} W/K
+• Renouvellement d'air: ${conductance_air.toFixed(1)} W/K
+
+PROPRIÉTÉS AIR:
+• Densité: ${rho_air.toFixed(2)} kg/m³
+• Masse: ${AIR_MASS.toFixed(0)} kg
+• Débit massique: ${(m_dot_air * 3600).toFixed(2)} kg/h
+
+=== MODÈLE 2 CORPS - PARAMÈTRES ===
+
+SUPER-OBJET (tous les meubles):
+• C1 = Σ(m_i × cp_i) = ${C1.toLocaleString()} J/K
+• A1 = Σ(A_i) = ${A1.toFixed(1)} m²
+• α_eq = Σ(α_i × A_i) / Σ(A_i) = ${alpha_eq.toFixed(3)}
+• T1_0 (initial) = ${T1_0.toFixed(1)} °C
+
+AIR INTÉRIEUR:
+• C2 = m_air × cp_air = ${C2.toLocaleString()} J/K
+• T2_0 (initial) = ${AIR_T_INIT} °C
+
+PARAMÈTRES RIDEAUX:
+• Transmission solaire τ = ${tau_rideau}
+• Facteur conduction f = ${f_cond_rideau}
+• Efficacité échangeur = ${(efficacite_echangeur * 100).toFixed(0)}%
+
+OBJETS ANALYSÉS (${result.labels.length} éléments):`;
+
+    // Détail des objets
+    for (let i = 0; i < result.labels.length; i++) {
+      const masse = masses_obj[i];
+      const cp = result.cp_JkgK[i];
+      const area = result.area_m2[i];
+      const albedo = result.albedo[i];
+      const type = result.types[i];
+      
+      output += `
+• ${result.labels[i]} (${type})
+  - Masse: ${masse.toFixed(1)} kg
+  - cp: ${cp} J/kg·K  
+  - Surface: ${area.toFixed(1)} m²
+  - Albédo: ${albedo}`;
+    }
+
+    document.getElementById('resultatsModele2Corps').textContent = output;
+    
+  } catch (error) {
+    document.getElementById('resultatsModele2Corps').textContent = 
+      `❌ Erreur: ${error.message}\n\nVérifiez que:\n- Le JSON est valide\n- Tous les paramètres sont remplis`;
+  }
+}
+
+// Remplacez la déclaration initiale par :
+let simulationState = {
+  heure: 0,
+  maxHeures: 24,
+  T1_state: 20.0,
+  T2_state: 20.0,
+  orientationConfirmee: false,
+  parametresOrientation: null,
+  historique: {
+    reel: {
+      temps: [],
+      temperatures: []
+    },
+    theorique: {
+      temps: [],
+      temperatures: []
+    },
+    choix: []
+  },
+  dernierResultat: null
+};
+
+
+
+let previsionsChartInstance = null;
+
+// === CONFIRMATION ORIENTATION COMPLÈTE ===
+function mettreAJourOrientationDisplay() {
+  const orientation = document.getElementById('wallOrientation').value;
+  const customAzimuth = document.getElementById('customAzimuth').value;
+  const albedo = document.getElementById('albedo').value;
+  const hauteur = document.getElementById('windowHeight').value;
+  const inclinaison = document.getElementById('wallTilt').value;
+  
+  // Mise à jour affichage orientation
+  let displayOrientation = '';
+  switch(orientation) {
+    case 'nord': displayOrientation = 'Nord (0°)'; break;
+    case 'est': displayOrientation = 'Est (90°)'; break;
+    case 'sud': displayOrientation = 'Sud (180°)'; break;
+    case 'ouest': displayOrientation = 'Ouest (270°)'; break;
+    case 'custom': displayOrientation = `Personnalisé (${customAzimuth || '?'}°)`; break;
+  }
+  
+  // Mise à jour affichage albédo
+  let displayAlbedo = '';
+  switch(albedo) {
+    case '0.05': displayAlbedo = 'Albédo : Asphalte (0.05)'; break;
+    case '0.2': displayAlbedo = 'Albédo : Sol moyen (0.20)'; break;
+    case '0.8': displayAlbedo = 'Albédo : Neige (0.80)'; break;
+    default: displayAlbedo = `Albédo : ${albedo}`;
+  }
+  
+  // Mise à jour de tous les affichages
+  document.getElementById('orientationDisplay').textContent = displayOrientation;
+  document.getElementById('albedoDisplay').textContent = displayAlbedo;
+  document.getElementById('hauteurDisplay').textContent = `Hauteur fenêtre : ${hauteur} m`;
+  document.getElementById('inclinaisonDisplay').textContent = `Inclinaison : ${inclinaison}°`;
+  
+  // Réinitialiser le statut de confirmation
+  simulationState.orientationConfirmee = false;
+  document.getElementById('orientationStatus').textContent = '⚠️ Non confirmée';
+  document.getElementById('orientationStatus').style.color = '#e17055';
+}
+
+function confirmerOrientationComplete() {
+  // Validation des paramètres
+  const orientation = document.getElementById('wallOrientation').value;
+  const customAzimuth = document.getElementById('customAzimuth').value;
+  const albedo = parseFloat(document.getElementById('albedo').value);
+  const hauteur = parseFloat(document.getElementById('windowHeight').value);
+  const inclinaison = parseFloat(document.getElementById('wallTilt').value);
+  
+  // Vérifications
+  if (orientation === 'custom' && (!customAzimuth || customAzimuth < 0 || customAzimuth > 360)) {
+    alert('⚠️ Veuillez saisir un azimuth valide (0-360°) pour l\'orientation personnalisée');
+    return;
+  }
+  
+  if (hauteur <= 0 || hauteur > 100) {
+    alert('⚠️ La hauteur de fenêtre doit être entre 0 et 100 mètres');
+    return;
+  }
+  
+  if (inclinaison < 0 || inclinaison > 90) {
+    alert('⚠️ L\'inclinaison doit être entre 0° et 90°');
+    return;
+  }
+  
+  // Stockage des paramètres confirmés
+  simulationState.parametresOrientation = {
+    orientation: orientation,
+    azimuth: orientation === 'custom' ? parseFloat(customAzimuth) : null,
+    albedo: albedo,
+    hauteur: hauteur,
+    inclinaison: inclinaison,
+    dateConfirmation: new Date()
+  };
+  
+  simulationState.orientationConfirmee = true;
+  document.getElementById('orientationStatus').textContent = '✅ Confirmée';
+  document.getElementById('orientationStatus').style.color = '#00b894';
+}
+
+// === CALCULS FLUX SOLAIRE POUR HEURE SUIVANTE ===
+async function calculerFluxHeureSuivante() {
+  try {
+    // Vérifier que l'orientation est confirmée
+    if (!simulationState.orientationConfirmee || !simulationState.parametresOrientation) {
+      throw new Error("Les paramètres d'orientation doivent être confirmés avant le calcul");
+    }
+    
+    // API météo pour l'heure suivante
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,shortwave_radiation,direct_radiation,diffuse_radiation&timezone=auto&forecast_hours=2`);
+    const data = await res.json();
+    
+    const maintenant = new Date();
+    const heureSuivante = new Date(maintenant.getTime() + 3600000);
+    
+    // Données météo
+    const temp_ext = data.hourly.temperature_2m[1] || data.hourly.temperature_2m[0] || 10;
+    const GHI = data.hourly.shortwave_radiation[1] || data.hourly.shortwave_radiation[0] || 400;
+    const DNI = data.hourly.direct_radiation[1] || data.hourly.direct_radiation[0] || 500;
+    const DHI = data.hourly.diffuse_radiation[1] || data.hourly.diffuse_radiation[0] || 100;
+    
+    // Calcul position solaire pour l'heure suivante
+    const solarPos = calculateSolarPosition(heureSuivante);
+    
+    // Utilisation des paramètres confirmés
+    const { orientation, azimuth, albedo, hauteur, inclinaison } = simulationState.parametresOrientation;
+    
+    let azimuthFinal = orientationToAzimuth(orientation);
+    if (orientation === 'custom') {
+      azimuthFinal = azimuth;
+    }
+    
+    // Calcul flux sur surface
+    const aoi = calculateAngleOfIncidence(inclinaison, azimuthFinal, solarPos.zenith, solarPos.azimuth);
+    let direct = aoi < 90 ? DNI * Math.max(0, cosd(aoi)) : 0;
+    let diffuse = DHI * (1 + cosd(inclinaison)) / 2;
+    let reflected = GHI * albedo * (1 - cosd(inclinaison)) / 2 * Math.exp(-0.2 * Math.max(0, hauteur - 2));
+    let fluxTotal = direct + diffuse + reflected;
+    
+    return {
+      temp_ext: temp_ext,
+      flux: fluxTotal,
+      time: heureSuivante,
+      details: { direct, diffuse, reflected, GHI, DNI, DHI },
+      parametresUtilises: simulationState.parametresOrientation
+    };
+  } catch (error) {
+    console.error('Erreur calcul flux:', error);
+    throw error;
+  }
+}
+
+// === INTÉGRATION NUMÉRIQUE ODE ===
+function integrerODE(ode_func, T0, temps_fin_sec, dt = 1) {
+  const steps = Math.floor(temps_fin_sec / dt);
+  let T = [...T0];
+  let trajectoire = [T.slice()];
+  let temps = [0];
+  
+  for (let i = 0; i < steps; i++) {
+    const t = i * dt;
+    const dT = ode_func(T, t);
+    T[0] += dT[0] * dt;
+    T[1] += dT[1] * dt;
+    trajectoire.push(T.slice());
+    temps.push(t + dt);
+  }
+  
+  return { temps: temps, trajectoire: trajectoire, T_final: T.slice() };
+}
+
+function ode_2body_ouvert(T, t, flux_W_m2, temp_ext, parametres) {
+  const { A1, alpha_eq, h_conv, C1, C2, conductance_totale, conductance_air, efficacite_echangeur, surface_fenetre, coeff_reflexion_fenetre } = parametres;
+  
+  const T1 = T[0], T2 = T[1];
+  const T_air_entrant = temp_ext + efficacite_echangeur * (T2 - temp_ext);
+  
+  const Q1 = (flux_W_m2 * surface_fenetre * (1 - coeff_reflexion_fenetre) * (1 - alpha_eq)) / A1;
+  const conv_loss = h_conv * A1 * (T1 - T2);
+  const cond_loss = conductance_totale * (T2 - temp_ext);
+  const air_loss = conductance_air * (T2 - T_air_entrant);
+  
+  const dT1 = (-conv_loss + Q1) / C1;
+  const dT2 = (conv_loss - cond_loss - air_loss) / C2;
+  
+  return [dT1, dT2];
+}
+
+
+function ode_2body_ferme(T, t, flux_W_m2, temp_ext, parametres) {
+  const { A1, h_conv, C1, C2,conductance_totale_eff, conductance_totale, conductance_air, efficacite_echangeur } = parametres;
+  
+  const T1 = T[0], T2 = T[1];
+  const T_air_entrant = temp_ext + efficacite_echangeur * (T2 - temp_ext);
+  
+  const Q1 = 0.0; // Rideau fermé = pas de flux solaire
+  const conv_loss = h_conv * A1 * (T1 - T2);
+  const cond_loss = conductance_totale_eff * (T2 - temp_ext);
+  const air_loss = conductance_air * (T2 - T_air_entrant);
+  
+  const dT1 = (-conv_loss + Q1) / C1;
+  const dT2 = (conv_loss - cond_loss - air_loss) / C2;
+  
+  return [dT1, dT2];
+}
+
+// === SIMULATION PRINCIPALE ===
+async function simulerHeureActuelle() {
+
+  // NETTOYER L'AFFICHAGE D'ERREUR AU DÉBUT
+  document.getElementById('resultatsSimulation').textContent = '';
+  console.log("🔥 ÉTAPE 1 : Début simulation heure", simulationState.heure);
+  
+  // Mise à jour étape interface
+  mettreAJourEtapeIndicateur(2);
+  
+  // Vérification orientation confirmée
+  if (!simulationState.orientationConfirmee) {
+    alert('⚠️ Veuillez d\'abord confirmer l\'orientation du mur/fenêtre dans la section précédente');
+    mettreAJourEtapeIndicateur(1);
+    return;
+  }
+  console.log("✅ Orientation confirmée");
+
+  // Vérifier si le modèle 2 corps a été calculé
+  const resultatsModele = document.getElementById('resultatsModele2Corps').textContent;
+  if (!resultatsModele || resultatsModele.includes('Erreur')) {
+    alert('⚠️ Veuillez d\'abord calculer les paramètres du modèle 2 corps dans la section précédente');
+    mettreAJourEtapeIndicateur(1);
+    return;
+  }
+  console.log("✅ Modèle 2 corps validé");
+
+  try {
+    console.log("🔥 ÉTAPE 2 : Validation températures");
+    
+    // Validation des températures
+    const T1_init = parseFloat(document.getElementById('tempMasseInit').value);
+    const T2_init = parseFloat(document.getElementById('tempAirInit').value);
+    
+    console.log("Températures initiales:", { T1_init, T2_init });
+    
+    if (isNaN(T1_init) || isNaN(T2_init)) {
+      throw new Error('Veuillez entrer des températures valides');
+    }
+    
+    if (T1_init < -50 || T1_init > 80 || T2_init < -50 || T2_init > 80) {
+      throw new Error('Les températures doivent être entre -50°C et 80°C');
+    }
+    console.log("✅ Températures validées");
+    
+    console.log("🔥 ÉTAPE 3 : Extraction paramètres modèle");
+    
+    // Récupération paramètres du modèle calculé
+    const parametres = extraireParametresModele2Corps();
+    console.log("✅ Paramètres extraits:", parametres);
+    
+    console.log("🔥 ÉTAPE 4 : Calcul flux heure suivante");
+    
+    // Calcul flux pour l'heure suivante
+    const fluxData = await calculerFluxHeureSuivante();
+    console.log("✅ Flux calculé:", fluxData);
+    
+    console.log("🔥 ÉTAPE 5 : Intégration rideau ouvert");
+    
+    // Simulation rideau ouvert
+    const resOuvert = integrerODE(
+      (T, t) => ode_2body_ouvert(T, t, fluxData.flux, fluxData.temp_ext, parametres),
+      [T1_init, T2_init],
+      3600, // 1 heure
+      60    // pas de 1 minute
+    );
+    console.log("✅ Intégration ouvert terminée");
+    console.log("resOuvert structure:", {
+      temps_length: resOuvert.temps ? resOuvert.temps.length : "undefined",
+      trajectoire_length: resOuvert.trajectoire ? resOuvert.trajectoire.length : "undefined",
+      T_final: resOuvert.T_final
+    });
+    
+    console.log("🔥 ÉTAPE 6 : Intégration rideau fermé");
+    
+    // Simulation rideau fermé
+    const resFerme = integrerODE(
+      (T, t) => ode_2body_ferme(T, t, fluxData.flux, fluxData.temp_ext, parametres),
+      [T1_init, T2_init],
+      3600,
+      60
+    );
+    console.log("✅ Intégration fermé terminée");
+    console.log("resFerme structure:", {
+      temps_length: resFerme.temps ? resFerme.temps.length : "undefined",
+      trajectoire_length: resFerme.trajectoire ? resFerme.trajectoire.length : "undefined", 
+      T_final: resFerme.T_final
+    });
+    
+    console.log("🔥 ÉTAPE 7 : Stockage résultats");
+    
+    // Stockage résultats
+    simulationState.dernierResultat = {
+      ouvert: resOuvert,
+      ferme: resFerme,
+      fluxData: fluxData,
+      parametres: parametres
+    };
+    console.log("✅ Résultats stockés");
+    
+    console.log("🔥 ÉTAPE 8 : Affichage graphique");
+    
+    // Vérification état historique avant graphique
+    console.log("État historique avant graphique:", {
+      historique_exists: !!simulationState.historique,
+      reel_exists: !!simulationState.historique?.reel,
+      reel_temps_length: simulationState.historique?.reel?.temps?.length || 0,
+      reel_temp_length: simulationState.historique?.reel?.temperatures?.length || 0
+    });
+    
+    // Affichage graphique
+    afficherGraphiquePrevisions(resOuvert, resFerme);
+    console.log("✅ Graphique affiché");
+    
+    console.log("🔥 ÉTAPE 9 : Affichage résultats texte");
+    
+    // Affichage résultats texte
+    afficherResultatsSimulation(resOuvert, resFerme, fluxData);
+    console.log("✅ Résultats texte affichés");
+    
+    console.log("🔥 ÉTAPE 10 : Finalisation interface");
+    
+    // Mise à jour étape après succès
+    mettreAJourEtapeIndicateur(3);
+    document.getElementById('btnValider').style.display = 'inline-block';
+    console.log("✅ Simulation terminée avec succès");
+    
+  } catch (error) {
+    console.error("❌ ERREUR DÉTECTÉE:", error);
+    console.error("❌ Stack trace:", error.stack);
+    
+    // Affichage de l'erreur à l'utilisateur
+    document.getElementById('resultatsSimulation').textContent = `❌ Erreur simulation: ${error.message}`;
+    
+    // Retour à l'étape 1
+    mettreAJourEtapeIndicateur(1);
+    
+    // Log supplémentaire pour le debugging
+    console.log("État final simulationState:", simulationState);
+  }
+}
+
+
+function extraireParametresModele2Corps() {
+  console.log("=== EXTRACTION PARAMÈTRES ===");
+  
+  // Parsing JSON avec vérifications
+  const jsonText = document.getElementById('resultBox').value.trim();
+  if (!jsonText) {
+    throw new Error("Aucun JSON d'objets fourni");
+  }
+  
+  let result;
+  try {
+    result = JSON.parse(jsonText);
+    console.log("Résultat parsing:", result);
+  } catch (error) {
+    throw new Error("JSON invalide: " + error.message);
+  }
+  
+  // Vérifications défensives
+  if (!result) {
+    throw new Error("JSON vide ou null");
+  }
+  
+  if (!result.mass_kg || !Array.isArray(result.mass_kg)) {
+    console.error("result.mass_kg problématique:", result.mass_kg);
+    throw new Error("Le champ 'mass_kg' est manquant ou n'est pas un array");
+  }
+  
+  if (!result.cp_JkgK || !Array.isArray(result.cp_JkgK)) {
+    console.error("result.cp_JkgK problématique:", result.cp_JkgK);
+    throw new Error("Le champ 'cp_JkgK' est manquant ou n'est pas un array");
+  }
+  
+  if (!result.area_m2 || !Array.isArray(result.area_m2)) {
+    console.error("result.area_m2 problématique:", result.area_m2);
+    throw new Error("Le champ 'area_m2' est manquant ou n'est pas un array");
+  }
+  
+  if (!result.albedo || !Array.isArray(result.albedo)) {
+    console.error("result.albedo problématique:", result.albedo);
+    throw new Error("Le champ 'albedo' est manquant ou n'est pas un array");
+  }
+  
+  // Vérification longueurs cohérentes
+  const longueurs = [
+    result.mass_kg.length,
+    result.cp_JkgK.length,
+    result.area_m2.length,
+    result.albedo.length
+  ];
+  
+  console.log("Longueurs des arrays:", longueurs);
+  
+  const longueurRef = longueurs[0];
+  if (!longueurs.every(len => len === longueurRef)) {
+    throw new Error(`Arrays de longueurs différentes: ${longueurs.join(', ')}`);
+  }
+  
+  if (longueurRef === 0) {
+    throw new Error("Aucun objet dans le JSON");
+  }
+  
+  // Récupération paramètres interface
+  const coeff_reflexion_fenetre = parseFloat(document.getElementById('coeffReflexionFenetre').value);
+  const U_murs = parseFloat(document.getElementById('isolationMur').value);
+  const U_fenetres = parseFloat(document.getElementById('isolationFenetre').value);
+  const efficacite_echangeur = parseFloat(document.getElementById('efficaciteEchangeur').value);
+  const n_air = parseFloat(document.getElementById('nAir').value);
+  const surface_fenetre = parseFloat(document.getElementById('surfaceFenetre').value);
+  const S_totale = parseFloat(document.getElementById('surfaceTotale').value);
+  const volume = parseFloat(document.getElementById('volumePiece').value);
+  
+  console.log("Paramètres interface:", {U_murs, U_fenetres, efficacite_echangeur, n_air, surface_fenetre, S_totale, volume});
+  
+  // Constantes
+  const P_ATM = 101325, R_AIR = 287.05, AIR_CP = 1005, AIR_T_INIT = 20, h_conv = 5.0;
+  const rho_air = P_ATM / (R_AIR * (AIR_T_INIT + 273.15));
+  const m_dot_air = rho_air * volume * n_air / 3600;
+  
+  // Calculs modèle 2 corps avec vérifications
+  const masses_obj = result.mass_kg.map(m => m !== null ? m : 1.0);
+  console.log("Masses objets:", masses_obj);
+  
+  let C1 = 0;
+  for (let i = 0; i < masses_obj.length; i++) {
+    C1 += masses_obj[i] * result.cp_JkgK[i];
+  }
+  
+  const C2 = rho_air * volume * AIR_CP;
+  const A1 = result.area_m2.reduce((sum, area) => sum + area, 0);
+  
+  let numerateur_albedo = 0;
+  for (let i = 0; i < result.albedo.length; i++) {
+    numerateur_albedo += result.albedo[i] * result.area_m2[i];
+  }
+  const alpha_eq = A1 > 0 ? numerateur_albedo / A1 : 0;
+  
+  const conductance_totale = U_murs * (S_totale - surface_fenetre) + U_fenetres * surface_fenetre;
+  const conductance_air = m_dot_air * AIR_CP;
+  const f_cond_rideau = parseFloat(document.getElementById('fCondRideau').value);
+  const U_fenetres_eff = U_fenetres * f_cond_rideau;
+  const conductance_totale_eff = U_murs * (S_totale - surface_fenetre) + U_fenetres_eff * surface_fenetre;
+  
+  console.log("Paramètres calculés:", {C1, C2, A1, alpha_eq, conductance_totale, conductance_air});
+  
+  
+return {
+  C1, C2, A1, alpha_eq, h_conv, conductance_totale, conductance_air, efficacite_echangeur, coeff_reflexion_fenetre, surface_fenetre,
+  conductance_totale_eff 
+};
+}
+
+
+function afficherGraphiquePrevisions(resOuvert, resFerme) {
+  const ctx = document.getElementById('previsionsChart').getContext('2d');
+
+  if (previsionsChartInstance) {
+    previsionsChartInstance.destroy();
+  }
+
+  // Données de prévision
+  const tempsPrevisionMinutes = resOuvert.temps.map(t => t / 60); // en minutes
+  const T2_ouvert = resOuvert.trajectoire.map(T => T[1]);
+  const T2_ferme = resFerme.trajectoire.map(T => T[1]);
+
+  // Historique
+  const histReel = simulationState.historique && simulationState.historique.reel && 
+                   simulationState.historique.reel.temperatures ? 
+                   simulationState.historique.reel.temperatures : [];
+  
+  const histTheorique = simulationState.historique && simulationState.historique.theorique && 
+                        simulationState.historique.theorique.temperatures ? 
+                        simulationState.historique.theorique.temperatures : [];
+
+  // === INTERPOLATION POUR PLUS DE POINTS ===
+  
+  function interpolerTemperatures(temperatures) {
+    if (temperatures.length < 2) return temperatures;
+    
+    const result = [];
+    for (let i = 0; i < temperatures.length - 1; i++) {
+      const tempDebut = temperatures[i];
+      const tempFin = temperatures[i + 1];
+      
+      // Ajouter 60 points entre chaque heure (une par minute)
+      for (let minute = 0; minute < 60; minute++) {
+        const ratio = minute / 60;
+        const tempInterpolee = tempDebut + (tempFin - tempDebut) * ratio;
+        result.push(tempInterpolee);
+      }
+    }
+    // Ajouter le dernier point
+    result.push(temperatures[temperatures.length - 1]);
+    return result;
+  }
+
+  // === CRÉATION DE L'AXE TEMPOREL (une minute = un point) ===
+  
+  const minutesHistorique = histReel.length > 0 ? (histReel.length - 1) * 60 : 0;
+  const minutesTotales = minutesHistorique + 60; // +60 pour la prévision
+  
+  // Labels toutes les 5 minutes pour la lisibilité
+  const labels = [];
+  for (let i = 0; i <= minutesTotales; i++) {
+    if (i % 5 === 0) { // Label toutes les 5 minutes
+      const heures = Math.floor(i / 60);
+      const minutes = i % 60;
+      labels.push(`${heures}h${minutes.toString().padStart(2, '0')}`);
+    } else {
+      labels.push(''); // Pas de label pour les autres minutes
+    }
+  }
+
+  // === PRÉPARATION DES DONNÉES INTERPOLÉES ===
+  
+  const datasets = [];
+
+  if (histReel.length > 0) {
+    // **HISTORIQUE RÉEL INTERPOLÉ** - 60 points par heure
+    const histReelInterpole = interpolerTemperatures(histReel);
+    const histReelData = histReelInterpole.concat(new Array(61).fill(null)); // +61 pour prévision
+    
+    datasets.push({
+      label: 'Historique validé (réel)',
+      data: histReelData,
+      borderColor: 'red',
+      backgroundColor: 'transparent',
+      borderWidth: 2, // MÊME ÉPAISSEUR
+      pointRadius: 0,
+      fill: false,
+      tension: 0.1
+    });
+
+    // **THÉORIQUE INTERPOLÉ** - 60 points par heure
+    if (histTheorique.length > 0) {
+      const histTheoriqueInterpole = interpolerTemperatures(histTheorique);
+      const histTheoriqueData = histTheoriqueInterpole.concat(new Array(61).fill(null));
+      
+      datasets.push({
+        label: 'Théorique (modèle)',
+        data: histTheoriqueData,
+        borderColor: 'blue',
+        backgroundColor: 'transparent',
+        borderWidth: 2, // MÊME ÉPAISSEUR
+        borderDash: [8, 4],
+        pointRadius: 0,
+        fill: false,
+        tension: 0.1
+      });
+    }
+  }
+
+  // **PRÉVISIONS** - 60 points pour l'heure suivante
+  const nbPointsHistorique = histReel.length > 0 ? (histReel.length - 1) * 60 + 1 : 0;
+  
+  datasets.push({
+    label: 'Prévision rideau ouvert',
+    data: new Array(nbPointsHistorique).fill(null).concat(T2_ouvert),
+    borderColor: 'green',
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderDash: [4, 2],
+    pointRadius: 0,
+    fill: false,
+    tension: 0.1
+  });
+
+  datasets.push({
+    label: 'Prévision rideau fermé',
+    data: new Array(nbPointsHistorique).fill(null).concat(T2_ferme),
+    borderColor: 'purple',
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderDash: [4, 2],
+    pointRadius: 0,
+    fill: false,
+    tension: 0.1
+  });
+
+  // === CRÉATION DU GRAPHIQUE ===
+  previsionsChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            boxWidth: 20,
+            padding: 15
+          }
+        },
+        title: {
+          display: true,
+          text: `Simulation - Heure ${simulationState.heure}`
+        }
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Temps continu'
+          },
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45,
+            maxTicksLimit: 20,
+            callback: function(value, index) {
+              // Afficher seulement les labels non-vides
+              return this.getLabelForValue(value) || '';
+            }
+          }
+        },
+        y: {
+          title: {
+            display: true,
+            text: 'Température (°C)'
+          }
+        }
+      },
+      interaction: {
+        mode: 'index',
+        intersect: false
+      }
+    }
   });
 }
 
+
+
+
+
+
+
+
+
+// === CALCUL D'ERREUR THÉORIQUE ===
+function afficherErreurPrediction() {
+  // Vérifications défensives
+  if (!simulationState.historique || 
+      !simulationState.historique.reel || 
+      !simulationState.historique.reel.temperatures || 
+      simulationState.historique.reel.temperatures.length === 0) {
+    return "Aucune données pour calculer l'erreur";
+  }
+  
+  const reel = simulationState.historique.reel.temperatures;
+  
+  // Vérifier que les données théoriques existent
+  if (!simulationState.historique.theorique || 
+      !simulationState.historique.theorique.temperatures ||
+      simulationState.historique.theorique.temperatures.length === 0) {
+    return "Données théoriques manquantes pour calculer l'erreur";
+  }
+  
+  const theorique = simulationState.historique.theorique.temperatures;
+  
+  // Vérifier que les longueurs correspondent
+  if (reel.length !== theorique.length) {
+    return `Longueurs différentes entre réel (${reel.length}) et théorique (${theorique.length})`;
+  }
+  
+  // Calcul des erreurs
+  const erreurs = reel.map((temp, i) => Math.abs(temp - theorique[i]));
+  const erreurMoyenne = erreurs.reduce((sum, err) => sum + err, 0) / erreurs.length;
+  const erreurMax = Math.max(...erreurs);
+  
+  return `
+ANALYSE D'ERREUR:
+• Erreur moyenne: ${erreurMoyenne.toFixed(3)} °C
+• Erreur maximale: ${erreurMax.toFixed(3)} °C
+• Points analysés: ${erreurs.length}`;
+}
+
+// === GESTION TEMPÉRATURE RÉELLE ===
+function afficherSaisieTemperatureReelle() {
+  document.getElementById('sectionTempReelle').style.display = 'block';
+  // Pré-remplir avec la température calculée comme suggestion
+  const tempCalculee = simulationState.T2_state;
+  document.getElementById('inputTempReelle').value = tempCalculee.toFixed(1);
+}
+
+function validerTemperatureReelle() {
+  const inputTemp = document.getElementById('inputTempReelle');
+  const tempReelleStr = inputTemp.value.trim();
+  
+  if (!tempReelleStr) {
+    alert('⚠️ Veuillez entrer une température');
+    return;
+  }
+  
+  const tempReelle = parseFloat(tempReelleStr);
+  
+  if (isNaN(tempReelle) || tempReelle < -50 || tempReelle > 80) {
+    alert('⚠️ Température invalide. Entrez une valeur entre -50°C et 80°C');
+    return;
+  }
+  
+  // === CORRECTION : Remplacer la dernière température réelle ===
+  if (simulationState.historique.reel.temperatures && 
+      simulationState.historique.reel.temperatures.length > 0) {
+    
+    const lastIndex = simulationState.historique.reel.temperatures.length - 1;
+    simulationState.historique.reel.temperatures[lastIndex] = tempReelle;
+    
+    console.log(`Température réelle corrigée: ${tempReelle}°C`);
+  }
+  
+  // Mise à jour de l'état pour la prochaine simulation
+  simulationState.T1_state = tempReelle;
+  simulationState.T2_state = tempReelle;
+  
+  // Mise à jour des champs d'entrée pour la prochaine heure
+  document.getElementById('tempMasseInit').value = tempReelle.toFixed(2);
+  document.getElementById('tempAirInit').value = tempReelle.toFixed(2);
+  
+  // Cacher la section température réelle
+  document.getElementById('sectionTempReelle').style.display = 'none';
+  
+  // Mise à jour de l'affichage d'information
+  document.getElementById('infoSimulation').innerHTML = 
+    `<strong>État actuel :</strong> Heure ${simulationState.heure} - Température réelle corrigée: ${tempReelle.toFixed(2)}°C`;
+  
+  alert(`✅ Température réelle prise en compte: ${tempReelle}°C\nCette valeur sera utilisée pour les prochaines prévisions`);
+}
+
+
+
+function afficherResultatsSimulation(resOuvert, resFerme, fluxData) {
+  const T2_fin_ouvert = resOuvert.T_final[1];
+  const T2_fin_ferme = resFerme.T_final[1];
+  
+  // Analyse d'erreur si historique disponible
+  const analyseErreur = simulationState.heure > 0 ? afficherErreurPrediction() : "";
+  
+  const output = `=== PRÉVISION HEURE ${simulationState.heure} ===
+
+DONNÉES MÉTÉO (heure suivante):
+• Température extérieure: ${fluxData.temp_ext.toFixed(1)} °C
+• Flux solaire total: ${fluxData.flux.toFixed(0)} W/m²
+  - Direct: ${fluxData.details.direct.toFixed(0)} W/m²
+  - Diffus: ${fluxData.details.diffuse.toFixed(0)} W/m²
+  - Réfléchi: ${fluxData.details.reflected.toFixed(0)} W/m²
+
+RÉSULTATS PRÉVISION:
+• Rideau OUVERT → Température finale: ${T2_fin_ouvert.toFixed(2)} °C
+• Rideau FERMÉ → Température finale: ${T2_fin_ferme.toFixed(2)} °C
+• Différence: ${(T2_fin_ouvert - T2_fin_ferme).toFixed(2)} °C
+
+${analyseErreur}
+
+Choisissez le mode rideau et cliquez sur 'Valider' pour continuer.`;
+  
+  document.getElementById('resultatsSimulation').textContent = output;
+}
+
+function validerEtContinuer() {
+  if (!simulationState.dernierResultat) {
+    alert('⚠️ Lancez d\'abord une prévision');
+    return;
+  }
+  
+  const mode = document.getElementById('modeRideau').value;
+  const resultatChoisi = simulationState.dernierResultat[mode];
+  const modeTheorique = mode === 'ouvert' ? 'ferme' : 'ouvert';
+  const resultatTheorique = simulationState.dernierResultat[modeTheorique];
+  
+  // === STOCKAGE HISTORIQUE RÉEL ===
+  // Stocker seulement la température finale réelle (celle qui sera corrigée par l'utilisateur)
+  const tempFinaleReelle = resultatChoisi.T_final[1];
+  
+  if (simulationState.heure === 0) {
+    // Première heure : initialiser avec temp de départ + temp finale
+    simulationState.historique.reel.temperatures = [
+      parseFloat(document.getElementById('tempAirInit').value),
+      tempFinaleReelle
+    ];
+    simulationState.historique.reel.temps = [0, 60];  // 0min et 60min
+  } else {
+    // Heures suivantes : ajouter seulement la température finale
+    simulationState.historique.reel.temperatures.push(tempFinaleReelle);
+    simulationState.historique.reel.temps.push((simulationState.heure + 1) * 60);
+  }
+  
+  // === STOCKAGE THÉORIQUE ===
+  // Stocker la température finale selon le modèle (pour comparaison)
+  const tempFinaleTheorique = resultatChoisi.T_final[1];  // Même que réel pour l'instant
+  
+  if (simulationState.heure === 0) {
+    simulationState.historique.theorique.temperatures = [
+      parseFloat(document.getElementById('tempAirInit').value),
+      tempFinaleTheorique
+    ];
+    simulationState.historique.theorique.temps = [0, 60];
+  } else {
+    simulationState.historique.theorique.temperatures.push(tempFinaleTheorique);
+    simulationState.historique.theorique.temps.push((simulationState.heure + 1) * 60);
+  }
+  
+  // Stocker le choix fait
+  simulationState.historique.choix.push(mode);
+  
+  // Mise à jour état pour heure suivante
+  simulationState.T1_state = resultatChoisi.T_final[0];
+  simulationState.T2_state = resultatChoisi.T_final[1];
+  simulationState.heure++;
+  
+  // Mise à jour inputs pour heure suivante
+  document.getElementById('tempMasseInit').value = simulationState.T1_state.toFixed(2);
+  document.getElementById('tempAirInit').value = simulationState.T2_state.toFixed(2);
+  
+  // Mise à jour interface
+  document.getElementById('infoSimulation').innerHTML = 
+    `<strong>État actuel :</strong> Heure ${simulationState.heure} - Mode '${mode}' appliqué - T_air: ${simulationState.T2_state.toFixed(2)}°C`;
+  
+  // Réinitialisation interface avec température réelle
+  mettreAJourEtapeIndicateur(4);
+  
+  setTimeout(() => {
+    afficherSaisieTemperatureReelle();
+  }, 1000);
+  
+  setTimeout(() => {
+    mettreAJourEtapeIndicateur(1);
+    document.getElementById('btnValider').style.display = 'none';
+    document.getElementById('resultatsSimulation').textContent = '';
+  }, 2000);
+  
+  if (simulationState.heure >= simulationState.maxHeures) {
+    document.getElementById('infoSimulation').innerHTML += '<br><strong>🎉 Simulation de 24h terminée !</strong>';
+    document.getElementById('btnPrevoir').disabled = true;
+  }
+}
+
+
+
 // --- INIT ---
 document.addEventListener('DOMContentLoaded',()=>{
+  // === INITIALISATION EXISTANTE (CARTE, ETC.) ===
   initMap();
   document.getElementById('getCurrentLocation').addEventListener('click',getCurrentLocation);
   document.getElementById('searchAddress').addEventListener('click',searchAddress);
@@ -296,7 +1659,23 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('wallOrientation').addEventListener('change',()=>{
     document.getElementById('customAzimuthDiv').style.display = (document.getElementById('wallOrientation').value==='custom')? 'block':'none';
   });
+  
+  // === NOUVEAUX ÉVÉNEMENTS ORIENTATION ===
+  document.getElementById('wallOrientation').addEventListener('change', mettreAJourOrientationDisplay);
+  document.getElementById('customAzimuth').addEventListener('input', mettreAJourOrientationDisplay);
+  document.getElementById('albedo').addEventListener('change', mettreAJourOrientationDisplay);
+  document.getElementById('windowHeight').addEventListener('input', mettreAJourOrientationDisplay);
+  document.getElementById('wallTilt').addEventListener('input', mettreAJourOrientationDisplay);
+   document.getElementById('btnValiderTempReelle').addEventListener('click', validerTemperatureReelle);
+  
+  // === INITIALISATION WORKFLOW ===
+  mettreAJourEtapeIndicateur(1);
+  
+  // === INITIALISATION AFFICHAGE ORIENTATION ===
+  mettreAJourOrientationDisplay();
 });
+
 </script>
 </body>
 </html>
+    
