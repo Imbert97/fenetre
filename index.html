@@ -4,6 +4,59 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🌍 Météo & Rayonnement Solaire</title>
+  <!-- 
+  ========================================
+  NOUVELLES FONCTIONNALITÉS MATRICE 4x20
+  ========================================
+  
+  ✅ Améliorations apportées :
+  
+  1. MATRICE 4x20 SYNCHRO GRAPHIQUE :
+     - À chaque minute, matrice 4 lignes x 20 colonnes
+     - SYNCHRONISÉE : Utilise exactement les mêmes valeurs que le graphique
+     - GRAPHIQUE : Prévisions échantillonées toutes les 5 minutes
+     - MATRICE : 20 points répartis uniformément sur ces prévisions
+     - Ligne 1 : Évolution température avec rideaux ouverts (du graphique)
+     - Ligne 2 : Évolution température avec rideaux fermés (du graphique)
+     - Ligne 3 : Température extérieure (du graphique) 
+     - Ligne 4 : Flux solaire entrant (du graphique)
+  
+  2. INTERFACE UTILISATEUR :
+     - Nouvelle colonne "Matrice 4x20" dans le tableau des données
+     - Bouton "Voir 4x20" pour chaque minute avec matrice disponible
+     - Compteur de matrices enregistrées dans le statut
+  
+  3. VISUALISATION :
+     - Modal d'élégante pour afficher chaque matrice
+     - Code couleur pour distinguer les différentes lignes
+     - Export CSV individuel pour chaque matrice
+  
+  4. DOUBLE EXPORT DONNÉES :
+     a) CSV SIMPLE (grandit à chaque minute) :
+        - T_Interieure_C, T_Exterieure_C, Flux_Solaire_Wm2
+        - Une ligne par minute, format léger
+     b) CSV COMPLET (avec matrices) :
+        - Export global incluant toutes les matrices 4x20
+        - Format CSV avec en-têtes clairs
+        - Horodatage pour chaque matrice
+  
+  5. CALCUL TECHNIQUES :
+     - Utilisation du modèle thermique 2 corps existant
+     - Simulation sur 60 minutes avec échantillonnage à 20 points
+     - Intégration ODE pour rideau ouvert/fermé
+  
+  🔍 Pour utiliser :
+  1. Confirmer l'orientation du mur/fenêtre
+  2. Démarrer la simulation temps réel
+  3. Les matrices se calculent automatiquement à chaque minute
+     - Synchronisées avec le graphique (prévisions 5min)
+     - 20 points répartis uniformément sur les données graphique
+  4. Cliquer "Voir 4x20" pour visualiser une matrice
+  5. Choisir l'export désiré :
+     - 📈 CSV Simple : Données de base minute par minute
+     - 💾 CSV Complet : Avec toutes les matrices 4x20
+  
+  --&gt;
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" crossorigin=""/>
   <!-- Chart.js -->
@@ -67,10 +120,6 @@
       margin-top: 15px;
       border-radius: 10px;
     }
-    #solarIrradianceChart {
-      margin-top: 20px;
-      max-width: 700px;
-    }
     .code-box {
       background: #f4f0eb;
       border: 1px solid #ddd;
@@ -87,6 +136,13 @@
       width: 100%;
       height: 350px;
     }
+    #graphiqueTempsReel {
+      margin-top: 20px;
+      width: 100% !important;
+      height: 400px !important;
+      max-height: 400px !important;
+    }
+    
 
   </style>
 </head>
@@ -158,7 +214,6 @@
     <button id="copyData" style="display:none;">📋 Copier les données</button>
     <div id="progressText" style="margin-top:10px;"></div>
     <div id="solarResults"></div>
-    <canvas id="solarIrradianceChart"></canvas>
   </section>
   
   <!-- PROMPT PERPLEXITY -->
@@ -281,12 +336,12 @@ RENVOIE UNIQUEMENT CE JSON, NE RENVOIE PAS TON RAISONNEMENT, SANS TEXTE SUPPLÉM
       <option value="5.5">Mal isolée (simple vitrage, U = 5.5 W/m²K)</option>
     </select>
     <!-- Coefficient de réflexion des fenêtres -->
-    <label for="coeffReflexionFenetre">Coefficient de réflexion des fenêtres (ρ) :</label>
+    <label for="coeffReflexionFenetre">Facteur solaire :</label>
     <select id="coeffReflexionFenetre">
-      <option value="0.08">Verre standard (ρ = 0.08)</option>
-      <option value="0.15">Verre teinté (ρ = 0.15)</option>
-      <option value="0.25">Verre réfléchissant (ρ = 0.25)</option>
-      <option value="0.35">Verre à contrôle solaire (ρ = 0.35)</option>
+      <option value="0.85">Verre standard (0.85)</option>
+      <option value="0.76">Vitrage clair (0.76)</option>
+      <option value="0.6">Double vitrage Low (0.60)</option>
+      <option value="0.5">Triple vitrage (0,5)</option>
     </select>
 
     <!-- Rideaux : transmission solaire (tau) -->
@@ -340,126 +395,121 @@ RENVOIE UNIQUEMENT CE JSON, NE RENVOIE PAS TON RAISONNEMENT, SANS TEXTE SUPPLÉM
     <div id="resultatsModele2Corps" style="margin-top:15px; white-space: pre-line; font-family: monospace;"></div>
   </section>
 
-  <!-- SIMULATION HORAIRE -->
+  <!-- SIMULATION TEMPS RÉEL -->
   <section class="section-card">
-    <h2>⏰ Simulation horaire - Prévisions</h2>
+    <h2>⏰ Simulation en temps réel</h2>
     
-    <!-- Paramètres initiaux avec contexte amélioré -->
+    <!-- Contrôles principaux -->
     <div style="background: #e3f2fd; border: 1px solid #90caf9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-      <h3>🌡️ Températures de départ</h3>
-      <p style="margin-bottom: 15px; color: #1565c0;">
-        <strong>📝 Instructions :</strong> Entrez les températures actuelles pour commencer la simulation. 
-        Ces valeurs représentent l'état <em>maintenant</em> avant la prévision.
+      <h3>🚀 Démarrage de la simulation</h3>
+      <p style="color: #1565c0; margin-bottom: 15px;">
+        <strong>📝 Comment ça marche :</strong> Toutes les minutes, vous devrez indiquer la température mesurée 
+        et l'état des rideaux. Le système enregistrera vos données en temps réel.
       </p>
       
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
         <div style="background: white; padding: 15px; border-radius: 6px;">
-          <label for="tempMasseInit" style="color: #d32f2f; font-weight: bold;">
-            🏠 Température des objets/murs (°C) :
+          <label for="tempInitialeTempsReel" style="color: #d32f2f; font-weight: bold;">
+            🌡️ Température actuelle (°C) :
           </label>
-          <input type="number" id="tempMasseInit" value="20" step="0.1" style="margin-top: 5px;">
-          <small style="color: #666; display: block; margin-top: 5px;">
-            💡 Température des meubles, murs, objets solides
-          </small>
+          <input type="number" id="tempInitialeTempsReel" value="22" step="0.1" style="margin-top: 5px;">
         </div>
         
         <div style="background: white; padding: 15px; border-radius: 6px;">
-          <label for="tempAirInit" style="color: #1976d2; font-weight: bold;">
-            💨 Température de l'air intérieur (°C) :
+          <label for="etatRideauxInitial" style="color: #1976d2; font-weight: bold;">
+            🎚️ État actuel des rideaux :
           </label>
-          <input type="number" id="tempAirInit" value="20" step="0.1" style="margin-top: 5px;">
-          <small style="color: #666; display: block; margin-top: 5px;">
-            💡 Température de l'air que vous ressentez
-          </small>
+          <select id="etatRideauxInitial" style="margin-top: 5px;">
+            <option value="ouvert">🌞 Ouverts</option>
+            <option value="ferme">🏠 Fermés</option>
+          </select>
         </div>
       </div>
       
-      <div style="margin-top: 15px; padding: 10px; background: #fff9c4; border-radius: 4px;">
-        <strong>🤔 Comment choisir ces valeurs ?</strong><br>
-        • <strong>Première simulation :</strong> Utilisez la température actuelle de votre pièce<br>
-        • <strong>Simulations suivantes :</strong> Les valeurs se mettent à jour automatiquement
-      </div>
+      <button id="btnDemarrerTempsReel" onclick="demarrerSimulationTempsReel()" 
+              style="font-size: 16px; padding: 12px 20px; margin-right: 10px;">
+        ▶️ Démarrer la simulation temps réel
+      </button>
+      
+      <button id="btnArreterTempsReel" onclick="arreterSimulationTempsReel()" 
+              style="font-size: 16px; padding: 12px 20px; display: none;">
+        ⏹️ Arrêter la simulation
+      </button>
     </div>
 
-    <!-- Contrôles simulation avec workflow -->
-    <div style="background: #f3e5f5; border: 1px solid #ce93d8; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-      <h3>⚡ Simulation pas à pas</h3>
+    <div id="saisieTempsReel" style="display:none; background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+      <h4 style="margin-top: 0; color: #856404;">📊 Saisie minute #<span id="numeroMinute">1</span></h4>
       
-      <!-- Indicateur d'étape -->
-      <div id="etapeIndicateur" style="margin-bottom: 20px; padding: 10px; border-radius: 6px; font-weight: bold; text-align: center;">
-        📊 Étape 1/3 : Configuration des températures initiales
-      </div>
-      
-      <!-- Boutons avec indications contextuelles -->
-      <div style="margin-bottom: 20px;">
-        <button id="btnPrevoir" onclick="simulerHeureActuelle()" style="font-size: 16px; padding: 12px 20px;">
-          🔮 Étape 2 : Calculer les prévisions pour l'heure suivante
-        </button>
-        <div id="infoPrevoir" style="margin-top: 10px; color: #4a148c; font-style: italic;">
-          💡 Ceci va calculer comment la température évoluera dans l'heure qui vient avec les deux options de rideau
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+        <div>
+          <label for="tempMesuree" style="font-weight: bold;">🌡️ Température (FIXÉE À 22°C) :</label>
+          <input type="number" id="tempMesuree" value="22" disabled style="background-color: #f0f0f0;">
         </div>
         
-        <button id="btnValider" onclick="validerEtContinuer()" style="display:none; font-size: 16px; padding: 12px 20px; margin-top: 10px;">
-          ✅ Étape 3 : Valider mon choix et passer à l'heure suivante
-        </button>
-        <div id="infoValider" style="display:none; margin-top: 10px; color: #2e7d32; font-style: italic;">
-          💡 Choisissez si vous ouvrez ou fermez le rideau, puis validez pour continuer
+        <div>
+          <label for="etatRideaux" style="font-weight: bold;">🎚️ État des rideaux :</label>
+          <select id="etatRideaux">
+            <option value="ouvert">🌞 Ouverts</option>
+            <option value="ferme">🏠 Fermés</option>
+          </select>
+        </div>
+        
+        <div style="display: flex; align-items: end;">
+          <button id="btnValiderSaisie" onclick="validerSaisieTempsReel()" 
+                  style="width: 100%; background: #00b894;">
+            ✅ Valider
+          </button>
         </div>
       </div>
       
-      <!-- Mode rideau avec contexte -->
-      <div id="choixRideaux" style="display:none; background: white; padding: 15px; border-radius: 6px;">
-        <label style="font-weight: bold; color: #6a1b9a;">🎚️ Votre décision pour cette heure :</label>
-        <select id="modeRideau" style="margin-top: 5px;">
-          <option value="ouvert">🌞 Rideau ouvert (laisser entrer le soleil)</option>
-          <option value="ferme">🏠 Rideau fermé (bloquer le soleil)</option>
-        </select>
-        <small style="display: block; margin-top: 5px; color: #666;">
-          Regardez le graphique ci-dessous pour voir l'impact de chaque choix
-        </small>
+      <div style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 14px;">
+        <strong>⏱️ Temps écoulé :</strong> <span id="minutesEcoulees">0</span> minutes
       </div>
     </div>
 
-    <!-- Informations état -->
-    <div id="infoSimulation" style="background: #f8f9fa; padding: 10px; border-radius: 6px; margin-bottom: 15px;">
-      <strong>État actuel :</strong> Heure 0 - Prêt à commencer
+    <!-- Statut simulation -->
+    <div id="statutSimulation" style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+      <strong>📅 État :</strong> <span id="texteStatut">Simulation arrêtée</span><br>
+      <strong>📈 Points enregistrés :</strong> <span id="nbPoints">0</span><br>
+      <strong>📊 Matrices 4x20 :</strong> <span id="nbMatrices">0</span><br>
+      <strong>📉 Lignes CSV simple :</strong> <span id="nbCSVSimple">0</span><br>
+      <strong>⏰ Prochaine saisie dans :</strong> <span id="compteRebours">--</span>
     </div>
 
-    <!-- Graphique prévisions -->
-    <canvas id="previsionsChart" style="margin-top: 20px;"></canvas>
+    <!-- Graphique temps réel -->
+    <canvas id="graphiqueTempsReel" width="800" height="400" style="margin-top: 20px; width: 100%; height: 400px;"></canvas>
     
-    <!-- Résultats détaillés -->
-    <div id="resultatsSimulation" style="margin-top: 15px; white-space: pre-line; font-family: monospace;"></div>
-  </section>
-    <div id="sectionTempReelle" style="display:none; background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin-top: 15px;">
-      <h4>🌡️ Correction température réelle</h4>
-      <p style="margin-bottom: 10px; color: #856404;">
-        Si vous avez mesuré la température réelle, entrez-la ici pour corriger les prévisions suivantes :
-      </p>
+    <!-- Données enregistrées -->
+    <div style="margin-top: 20px;">
+      <h4>📋 Données enregistrées</h4>
       
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <label for="inputTempReelle" style="margin: 0;">Température mesurée (°C) :</label>
-        <input type="number" id="inputTempReelle" step="0.1" min="-50" max="80" 
-               placeholder="Ex: 21.5" style="width: 120px;">
-        <button id="btnValiderTempReelle">✅ Valider température réelle</button>
+      <div style="margin-bottom: 15px;">
+        <button onclick="exporterCSVSimple()" style="margin-right: 10px; background: #17a2b8; color: white;">📈 CSV Simple (T_int, T_ext, Flux)</button>
+        <button onclick="exporterDonnees()" style="margin-right: 10px;">💾 CSV Complet (avec matrices)</button>
+        <button onclick="viderDonnees()" style="background: #e17055;">🗑️ Vider les données</button>
       </div>
       
-      <small style="display: block; margin-top: 8px; color: #666;">
-        💡 Cette température sera utilisée comme point de départ pour l'heure suivante
-      </small>
+      <div id="tableauDonnees" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; padding: 10px; background: white;">
+        <em>Aucune donnée enregistrée</em>
+      </div>
     </div>
   </section>
+
 </div>
 
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <script>
 let map, marker, lat = 46.8139, lng = -71.2080;
-let weatherData = null, solarChartInstance = null;
+let weatherData = null;
 let tempSelectedPosition = null;
 let autoFetchInterval = null;
 let minutesCounter = 0;
 let recordedData = [];
+// === VARIABLES GLOBALES SIMULATION TEMPS RÉEL ===
+
+
+let graphiqueTempsReelInstance = null;
 
 // === Carte / Localisation ===
 function initMap() {
@@ -551,23 +601,25 @@ function displaySolarCalculation() {
   const now = new Date();
   const solarPos = calculateSolarPosition(now);
   const aoi = calculateAngleOfIncidence(tilt, azimuth, solarPos.zenith, solarPos.azimuth);
-  const GHI = weatherData.current.shortwave_radiation||800;
-  const DNI = weatherData.current.direct_radiation||900;
-  const DHI = weatherData.current.diffuse_radiation||100;
+  const GHI = weatherData.current.shortwave_radiation||0;
+  const DNI = weatherData.current.direct_radiation||0;
+  const DHI = weatherData.current.diffuse_radiation||0;
   let direct = aoi<90? DNI*Math.max(0, cosd(aoi)):0;
   let diffuse = DHI*(1+cosd(tilt))/2;
   let reflected = GHI*albedo*(1-cosd(tilt))/2*Math.exp(-0.2*Math.max(0,h-2));
   let total = direct+diffuse+reflected;
   recordedData.push({time: now.toLocaleTimeString(), temp: weatherData.current.temperature_2m, flux: total.toFixed(1)});
-  document.getElementById('solarResults').innerHTML = `<p>🌡 Température: ${weatherData.current.temperature_2m} °C<br><b>Total flux:</b> ${total.toFixed(1)} W/m²</p>`;
-  const ctx = document.getElementById('solarIrradianceChart').getContext('2d');
-  if (solarChartInstance) solarChartInstance.destroy();
-  solarChartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: { labels: ['Direct','Diffus','Réfléchi','Total'], datasets:[{ data:[direct,diffuse,reflected,total], backgroundColor:['#ff9800','#03a9f4','#8bc34a','#673ab7'] }]},
-    options:{ plugins:{legend:{display:false}} }
-  });
+  document.getElementById('solarResults').innerHTML = `
+  <p>🌡 Température: ${weatherData.current.temperature_2m} °C<br>
+  <b>Flux solaire :</b><br>
+  • Direct = ${direct.toFixed(1)} W/m²<br>
+  • Diffus = ${diffuse.toFixed(1)} W/m²<br>
+  • Réfléchi = ${reflected.toFixed(1)} W/m²<br>
+  <b>• Total = ${total.toFixed(1)} W/m²</b>
+  </p>`;
+
 }
+
 
 function startAutoFetch() {
   document.getElementById('startAutoFetch').style.display = 'none';
@@ -602,43 +654,6 @@ function copyResult(){
   navigator.clipboard.writeText(text).then(()=>alert("✅ Résultat JSON copié !"));
 }
 
-// === GESTION DU WORKFLOW ÉTAPES ===
-function mettreAJourEtapeIndicateur(etape) {
-  const indicateur = document.getElementById('etapeIndicateur');
-  const infoPrevoir = document.getElementById('infoPrevoir');
-  const infoValider = document.getElementById('infoValider');
-  const choixRideaux = document.getElementById('choixRideaux');
-  
-  switch(etape) {
-    case 1:
-      indicateur.textContent = '📊 Étape 1/3 : Configuration des températures initiales';
-      indicateur.style.background = '#e3f2fd';
-      infoPrevoir.style.display = 'block';
-      infoValider.style.display = 'none';
-      choixRideaux.style.display = 'none';
-      break;
-      
-    case 2:
-      indicateur.textContent = '🔮 Étape 2/3 : Analyse des prévisions en cours...';
-      indicateur.style.background = '#fff3e0';
-      infoPrevoir.style.display = 'none';
-      break;
-      
-    case 3:
-      indicateur.textContent = '✅ Étape 3/3 : Choisissez votre décision et validez';
-      indicateur.style.background = '#e8f5e8';
-      infoValider.style.display = 'block';
-      choixRideaux.style.display = 'block';
-      break;
-      
-    case 4:
-      indicateur.textContent = `🎯 Heure ${simulationState.heure} terminée ! Prêt pour l'heure suivante`;
-      indicateur.style.background = '#f3e5f5';
-      infoValider.style.display = 'none';
-      choixRideaux.style.display = 'none';
-      break;
-  }
-}
 
 // === CALCUL MODÈLE 2 CORPS ===
 function calculerModele2Corps() {
@@ -816,6 +831,22 @@ let simulationState = {
   dernierResultat: null
 };
 
+// === FONCTION DE VÉRIFICATION DE SÉCURITÉ (AJOUT) ===
+function verifierTailleGraphique() {
+  const totalPointsReel = simulationState.historique?.reel?.temperatures?.length || 0;
+  const totalPointsTheorique = simulationState.historique?.theorique?.temperatures?.length || 0;
+  const maxPoints = Math.max(totalPointsReel, totalPointsTheorique);
+  
+  if (maxPoints > 50) {
+    console.warn(`⚠️ Beaucoup de données (${maxPoints} points) - performance peut être affectée`);
+  }
+  if (maxPoints > 100) {
+    console.error(`❌ CRITIQUE: Trop de données (${maxPoints} points) - graphique peut planter!`);
+    return false; // Indique un problème
+  }
+  return true; // Tout va bien
+}
+
 
 
 let previsionsChartInstance = null;
@@ -898,57 +929,7 @@ function confirmerOrientationComplete() {
   document.getElementById('orientationStatus').style.color = '#00b894';
 }
 
-// === CALCULS FLUX SOLAIRE POUR HEURE SUIVANTE ===
-async function calculerFluxHeureSuivante() {
-  try {
-    // Vérifier que l'orientation est confirmée
-    if (!simulationState.orientationConfirmee || !simulationState.parametresOrientation) {
-      throw new Error("Les paramètres d'orientation doivent être confirmés avant le calcul");
-    }
-    
-    // API météo pour l'heure suivante
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,shortwave_radiation,direct_radiation,diffuse_radiation&timezone=auto&forecast_hours=2`);
-    const data = await res.json();
-    
-    const maintenant = new Date();
-    const heureSuivante = new Date(maintenant.getTime() + 3600000);
-    
-    // Données météo
-    const temp_ext = data.hourly.temperature_2m[1] || data.hourly.temperature_2m[0] || 10;
-    const GHI = data.hourly.shortwave_radiation[1] || data.hourly.shortwave_radiation[0] || 400;
-    const DNI = data.hourly.direct_radiation[1] || data.hourly.direct_radiation[0] || 500;
-    const DHI = data.hourly.diffuse_radiation[1] || data.hourly.diffuse_radiation[0] || 100;
-    
-    // Calcul position solaire pour l'heure suivante
-    const solarPos = calculateSolarPosition(heureSuivante);
-    
-    // Utilisation des paramètres confirmés
-    const { orientation, azimuth, albedo, hauteur, inclinaison } = simulationState.parametresOrientation;
-    
-    let azimuthFinal = orientationToAzimuth(orientation);
-    if (orientation === 'custom') {
-      azimuthFinal = azimuth;
-    }
-    
-    // Calcul flux sur surface
-    const aoi = calculateAngleOfIncidence(inclinaison, azimuthFinal, solarPos.zenith, solarPos.azimuth);
-    let direct = aoi < 90 ? DNI * Math.max(0, cosd(aoi)) : 0;
-    let diffuse = DHI * (1 + cosd(inclinaison)) / 2;
-    let reflected = GHI * albedo * (1 - cosd(inclinaison)) / 2 * Math.exp(-0.2 * Math.max(0, hauteur - 2));
-    let fluxTotal = direct + diffuse + reflected;
-    
-    return {
-      temp_ext: temp_ext,
-      flux: fluxTotal,
-      time: heureSuivante,
-      details: { direct, diffuse, reflected, GHI, DNI, DHI },
-      parametresUtilises: simulationState.parametresOrientation
-    };
-  } catch (error) {
-    console.error('Erreur calcul flux:', error);
-    throw error;
-  }
-}
+
 
 // === INTÉGRATION NUMÉRIQUE ODE ===
 function integrerODE(ode_func, T0, temps_fin_sec, dt = 1) {
@@ -967,183 +948,6 @@ function integrerODE(ode_func, T0, temps_fin_sec, dt = 1) {
   }
   
   return { temps: temps, trajectoire: trajectoire, T_final: T.slice() };
-}
-
-function ode_2body_ouvert(T, t, flux_W_m2, temp_ext, parametres) {
-  const { A1, alpha_eq, h_conv, C1, C2, conductance_totale, conductance_air, efficacite_echangeur, surface_fenetre, coeff_reflexion_fenetre } = parametres;
-  
-  const T1 = T[0], T2 = T[1];
-  const T_air_entrant = temp_ext + efficacite_echangeur * (T2 - temp_ext);
-  
-  const Q1 = (flux_W_m2 * surface_fenetre * (1 - coeff_reflexion_fenetre) * (1 - alpha_eq)) / A1;
-  const conv_loss = h_conv * A1 * (T1 - T2);
-  const cond_loss = conductance_totale * (T2 - temp_ext);
-  const air_loss = conductance_air * (T2 - T_air_entrant);
-  
-  const dT1 = (-conv_loss + Q1) / C1;
-  const dT2 = (conv_loss - cond_loss - air_loss) / C2;
-  
-  return [dT1, dT2];
-}
-
-
-function ode_2body_ferme(T, t, flux_W_m2, temp_ext, parametres) {
-  const { A1, h_conv, C1, C2,conductance_totale_eff, conductance_totale, conductance_air, efficacite_echangeur } = parametres;
-  
-  const T1 = T[0], T2 = T[1];
-  const T_air_entrant = temp_ext + efficacite_echangeur * (T2 - temp_ext);
-  
-  const Q1 = 0.0; // Rideau fermé = pas de flux solaire
-  const conv_loss = h_conv * A1 * (T1 - T2);
-  const cond_loss = conductance_totale_eff * (T2 - temp_ext);
-  const air_loss = conductance_air * (T2 - T_air_entrant);
-  
-  const dT1 = (-conv_loss + Q1) / C1;
-  const dT2 = (conv_loss - cond_loss - air_loss) / C2;
-  
-  return [dT1, dT2];
-}
-
-// === SIMULATION PRINCIPALE ===
-async function simulerHeureActuelle() {
-
-  // NETTOYER L'AFFICHAGE D'ERREUR AU DÉBUT
-  document.getElementById('resultatsSimulation').textContent = '';
-  console.log("🔥 ÉTAPE 1 : Début simulation heure", simulationState.heure);
-  
-  // Mise à jour étape interface
-  mettreAJourEtapeIndicateur(2);
-  
-  // Vérification orientation confirmée
-  if (!simulationState.orientationConfirmee) {
-    alert('⚠️ Veuillez d\'abord confirmer l\'orientation du mur/fenêtre dans la section précédente');
-    mettreAJourEtapeIndicateur(1);
-    return;
-  }
-  console.log("✅ Orientation confirmée");
-
-  // Vérifier si le modèle 2 corps a été calculé
-  const resultatsModele = document.getElementById('resultatsModele2Corps').textContent;
-  if (!resultatsModele || resultatsModele.includes('Erreur')) {
-    alert('⚠️ Veuillez d\'abord calculer les paramètres du modèle 2 corps dans la section précédente');
-    mettreAJourEtapeIndicateur(1);
-    return;
-  }
-  console.log("✅ Modèle 2 corps validé");
-
-  try {
-    console.log("🔥 ÉTAPE 2 : Validation températures");
-    
-    // Validation des températures
-    const T1_init = parseFloat(document.getElementById('tempMasseInit').value);
-    const T2_init = parseFloat(document.getElementById('tempAirInit').value);
-    
-    console.log("Températures initiales:", { T1_init, T2_init });
-    
-    if (isNaN(T1_init) || isNaN(T2_init)) {
-      throw new Error('Veuillez entrer des températures valides');
-    }
-    
-    if (T1_init < -50 || T1_init > 80 || T2_init < -50 || T2_init > 80) {
-      throw new Error('Les températures doivent être entre -50°C et 80°C');
-    }
-    console.log("✅ Températures validées");
-    
-    console.log("🔥 ÉTAPE 3 : Extraction paramètres modèle");
-    
-    // Récupération paramètres du modèle calculé
-    const parametres = extraireParametresModele2Corps();
-    console.log("✅ Paramètres extraits:", parametres);
-    
-    console.log("🔥 ÉTAPE 4 : Calcul flux heure suivante");
-    
-    // Calcul flux pour l'heure suivante
-    const fluxData = await calculerFluxHeureSuivante();
-    console.log("✅ Flux calculé:", fluxData);
-    
-    console.log("🔥 ÉTAPE 5 : Intégration rideau ouvert");
-    
-    // Simulation rideau ouvert
-    const resOuvert = integrerODE(
-      (T, t) => ode_2body_ouvert(T, t, fluxData.flux, fluxData.temp_ext, parametres),
-      [T1_init, T2_init],
-      3600, // 1 heure
-      60    // pas de 1 minute
-    );
-    console.log("✅ Intégration ouvert terminée");
-    console.log("resOuvert structure:", {
-      temps_length: resOuvert.temps ? resOuvert.temps.length : "undefined",
-      trajectoire_length: resOuvert.trajectoire ? resOuvert.trajectoire.length : "undefined",
-      T_final: resOuvert.T_final
-    });
-    
-    console.log("🔥 ÉTAPE 6 : Intégration rideau fermé");
-    
-    // Simulation rideau fermé
-    const resFerme = integrerODE(
-      (T, t) => ode_2body_ferme(T, t, fluxData.flux, fluxData.temp_ext, parametres),
-      [T1_init, T2_init],
-      3600,
-      60
-    );
-    console.log("✅ Intégration fermé terminée");
-    console.log("resFerme structure:", {
-      temps_length: resFerme.temps ? resFerme.temps.length : "undefined",
-      trajectoire_length: resFerme.trajectoire ? resFerme.trajectoire.length : "undefined", 
-      T_final: resFerme.T_final
-    });
-    
-    console.log("🔥 ÉTAPE 7 : Stockage résultats");
-    
-    // Stockage résultats
-    simulationState.dernierResultat = {
-      ouvert: resOuvert,
-      ferme: resFerme,
-      fluxData: fluxData,
-      parametres: parametres
-    };
-    console.log("✅ Résultats stockés");
-    
-    console.log("🔥 ÉTAPE 8 : Affichage graphique");
-    
-    // Vérification état historique avant graphique
-    console.log("État historique avant graphique:", {
-      historique_exists: !!simulationState.historique,
-      reel_exists: !!simulationState.historique?.reel,
-      reel_temps_length: simulationState.historique?.reel?.temps?.length || 0,
-      reel_temp_length: simulationState.historique?.reel?.temperatures?.length || 0
-    });
-    
-    // Affichage graphique
-    afficherGraphiquePrevisions(resOuvert, resFerme);
-    console.log("✅ Graphique affiché");
-    
-    console.log("🔥 ÉTAPE 9 : Affichage résultats texte");
-    
-    // Affichage résultats texte
-    afficherResultatsSimulation(resOuvert, resFerme, fluxData);
-    console.log("✅ Résultats texte affichés");
-    
-    console.log("🔥 ÉTAPE 10 : Finalisation interface");
-    
-    // Mise à jour étape après succès
-    mettreAJourEtapeIndicateur(3);
-    document.getElementById('btnValider').style.display = 'inline-block';
-    console.log("✅ Simulation terminée avec succès");
-    
-  } catch (error) {
-    console.error("❌ ERREUR DÉTECTÉE:", error);
-    console.error("❌ Stack trace:", error.stack);
-    
-    // Affichage de l'erreur à l'utilisateur
-    document.getElementById('resultatsSimulation').textContent = `❌ Erreur simulation: ${error.message}`;
-    
-    // Retour à l'étape 1
-    mettreAJourEtapeIndicateur(1);
-    
-    // Log supplémentaire pour le debugging
-    console.log("État final simulationState:", simulationState);
-  }
 }
 
 
@@ -1258,59 +1062,66 @@ return {
 };
 }
 
+// Convertit une série à la seconde en 1 point par minute (0..60)
+function downsampleToMinutes(seriesSeconds) {
+  const out = [];
+  for (let m = 0; m <= 60; m++) {
+    const idx = Math.min(m * 60, seriesSeconds.length - 1);
+    out.push(seriesSeconds[idx]);
+  }
+  return out;
+}
+
 
 function afficherGraphiquePrevisions(resOuvert, resFerme) {
+  // === VÉRIFICATION DE SÉCURITÉ ===
+  if (!verifierTailleGraphique()) {
+    console.error("❌ Affichage graphique annulé - trop de données");
+    return;
+  }
+  
   const ctx = document.getElementById('previsionsChart').getContext('2d');
 
   if (previsionsChartInstance) {
     previsionsChartInstance.destroy();
   }
 
+  // === LIMITATION DE L'HISTORIQUE ===
+  const MAX_HEURES_AFFICHEES = 12; // Limiter à 12 heures maximum
+  
+  const histReel = simulationState.historique?.reel?.temperatures || [];
+  const histTheorique = simulationState.historique?.theorique?.temperatures || [];
+  
+  // Limiter les données à afficher
+  const histReelLimite = histReel.length > MAX_HEURES_AFFICHEES ? 
+                        histReel.slice(-MAX_HEURES_AFFICHEES) : histReel;
+  const histTheoriqueLimite = histTheorique.length > MAX_HEURES_AFFICHEES ? 
+                             histTheorique.slice(-MAX_HEURES_AFFICHEES) : histTheorique;
+
   // Données de prévision
-  const tempsPrevisionMinutes = resOuvert.temps.map(t => t / 60); // en minutes
-  const T2_ouvert = resOuvert.trajectoire.map(T => T[1]);
-  const T2_ferme = resFerme.trajectoire.map(T => T[1]);
+  // Séries à la seconde -> 1 point/minute (61 points)
+  const T2_ouvert_sec = resOuvert.trajectoire.map(T => T[1]);
+  const T2_ferme_sec  = resFerme.trajectoire.map(T => T[1]);
+  const T2_ouvert = downsampleToMinutes(T2_ouvert_sec);
+  const T2_ferme  = downsampleToMinutes(T2_ferme_sec);
 
-  // Historique
-  const histReel = simulationState.historique && simulationState.historique.reel && 
-                   simulationState.historique.reel.temperatures ? 
-                   simulationState.historique.reel.temperatures : [];
-  
-  const histTheorique = simulationState.historique && simulationState.historique.theorique && 
-                        simulationState.historique.theorique.temperatures ? 
-                        simulationState.historique.theorique.temperatures : [];
 
-  // === INTERPOLATION POUR PLUS DE POINTS ===
-  
-  function interpolerTemperatures(temperatures) {
-    if (temperatures.length < 2) return temperatures;
-    
-    const result = [];
-    for (let i = 0; i < temperatures.length - 1; i++) {
-      const tempDebut = temperatures[i];
-      const tempFin = temperatures[i + 1];
-      
-      // Ajouter 60 points entre chaque heure (une par minute)
-      for (let minute = 0; minute < 60; minute++) {
-        const ratio = minute / 60;
-        const tempInterpolee = tempDebut + (tempFin - tempDebut) * ratio;
-        result.push(tempInterpolee);
-      }
-    }
-    // Ajouter le dernier point
-    result.push(temperatures[temperatures.length - 1]);
-    return result;
-  }
 
-  // === CRÉATION DE L'AXE TEMPOREL (une minute = un point) ===
-  
-  const minutesHistorique = histReel.length > 0 ? (histReel.length - 1) * 60 : 0;
+  const minutesHistorique = histReelLimite.length > 0 ? (histReelLimite.length - 1) * 60 : 0;
   const minutesTotales = minutesHistorique + 60; // +60 pour la prévision
   
-  // Labels toutes les 5 minutes pour la lisibilité
+  // Vérification de sécurité supplémentaire
+  if (minutesTotales > 1440) { // Plus de 24h
+    console.warn("⚠️ Trop de données, limitation appliquée");
+    return;
+  }
+
+  // === CRÉATION OPTIMISÉE DES LABELS ===
   const labels = [];
+  const INTERVALLE_LABEL = Math.max(5, Math.floor(minutesTotales / 100)); // Adapter l'intervalle
+  
   for (let i = 0; i <= minutesTotales; i++) {
-    if (i % 5 === 0) { // Label toutes les 5 minutes
+    if (i % INTERVALLE_LABEL === 0) { // Label à intervalles réguliers
       const heures = Math.floor(i / 60);
       const minutes = i % 60;
       labels.push(`${heures}h${minutes.toString().padStart(2, '0')}`);
@@ -1319,13 +1130,12 @@ function afficherGraphiquePrevisions(resOuvert, resFerme) {
     }
   }
 
-  // === PRÉPARATION DES DONNÉES INTERPOLÉES ===
-  
+  // === PRÉPARATION DES DATASETS ===
   const datasets = [];
 
-  if (histReel.length > 0) {
-    // **HISTORIQUE RÉEL INTERPOLÉ** - 60 points par heure
-    const histReelInterpole = interpolerTemperatures(histReel);
+  if (histReelLimite.length > 0) {
+    // **HISTORIQUE RÉEL INTERPOLÉ** - optimisé
+    const histReelInterpole = interpolerTemperaturesOptimisee(histReelLimite, 720); // Max 720 points
     const histReelData = histReelInterpole.concat(new Array(61).fill(null)); // +61 pour prévision
     
     datasets.push({
@@ -1333,15 +1143,15 @@ function afficherGraphiquePrevisions(resOuvert, resFerme) {
       data: histReelData,
       borderColor: 'red',
       backgroundColor: 'transparent',
-      borderWidth: 2, // MÊME ÉPAISSEUR
+      borderWidth: 2,
       pointRadius: 0,
       fill: false,
       tension: 0.1
     });
 
-    // **THÉORIQUE INTERPOLÉ** - 60 points par heure
-    if (histTheorique.length > 0) {
-      const histTheoriqueInterpole = interpolerTemperatures(histTheorique);
+    // **THÉORIQUE INTERPOLÉ** - optimisé
+    if (histTheoriqueLimite.length > 0) {
+      const histTheoriqueInterpole = interpolerTemperaturesOptimisee(histTheoriqueLimite, 720);
       const histTheoriqueData = histTheoriqueInterpole.concat(new Array(61).fill(null));
       
       datasets.push({
@@ -1349,7 +1159,7 @@ function afficherGraphiquePrevisions(resOuvert, resFerme) {
         data: histTheoriqueData,
         borderColor: 'blue',
         backgroundColor: 'transparent',
-        borderWidth: 2, // MÊME ÉPAISSEUR
+        borderWidth: 2,
         borderDash: [8, 4],
         pointRadius: 0,
         fill: false,
@@ -1359,7 +1169,8 @@ function afficherGraphiquePrevisions(resOuvert, resFerme) {
   }
 
   // **PRÉVISIONS** - 60 points pour l'heure suivante
-  const nbPointsHistorique = histReel.length > 0 ? (histReel.length - 1) * 60 + 1 : 0;
+  const nbPointsHistorique = histReelLimite.length > 0 ? (histReelLimite.length - 1) * 60 : 0;
+
   
   datasets.push({
     label: 'Prévision rideau ouvert',
@@ -1385,6 +1196,31 @@ function afficherGraphiquePrevisions(resOuvert, resFerme) {
     tension: 0.1
   });
 
+  // Calcule une plage Y stable sur toutes les séries visibles
+  const allValues = [];
+  datasets.forEach(ds => {
+    if (Array.isArray(ds.data)) {
+      ds.data.forEach(v => {
+        if (v !== null && v !== undefined && isFinite(v)) allValues.push(v);
+      });
+    }
+  });
+
+  let yMin = 15, yMax = 25; // fallback
+  if (allValues.length > 0) {
+    const minVal = Math.min(...allValues);
+    const maxVal = Math.max(...allValues);
+    const pad = Math.max(0.5, (maxVal - minVal) * 0.1);
+    yMin = minVal - pad;
+    yMax = maxVal + pad;
+  }
+  console.log(
+    'labels=', labels.length,
+    'histMin=', nbPointsHistorique,
+    'prev_ouvert=', T2_ouvert.length,
+    'prev_ferme=', T2_ferme.length
+  );
+
   // === CRÉATION DU GRAPHIQUE ===
   previsionsChartInstance = new Chart(ctx, {
     type: 'line',
@@ -1394,6 +1230,7 @@ function afficherGraphiquePrevisions(resOuvert, resFerme) {
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: {
           position: 'top',
@@ -1418,7 +1255,6 @@ function afficherGraphiquePrevisions(resOuvert, resFerme) {
             minRotation: 45,
             maxTicksLimit: 20,
             callback: function(value, index) {
-              // Afficher seulement les labels non-vides
               return this.getLabelForValue(value) || '';
             }
           }
@@ -1427,6 +1263,57 @@ function afficherGraphiquePrevisions(resOuvert, resFerme) {
           title: {
             display: true,
             text: 'Température (°C)'
+          },
+          min: function(context) {
+            const allData = [];
+            context.chart.data.datasets.forEach(dataset => {
+              if (dataset.data) {
+                dataset.data.forEach(val => {
+                  if (val !== null && val !== undefined && isFinite(val)) {
+                    allData.push(val);
+                  }
+                });
+              }
+            });
+            
+            if (allData.length === 0) return 15;
+            
+            const minVal = Math.min(...allData);
+            const maxVal = Math.max(...allData);
+            const range = maxVal - minVal;
+            
+            if (range < 2) {
+              return minVal - 2;
+            } else {
+              return minVal - range * 0.1;
+            }
+          },
+          max: function(context) {
+            const allData = [];
+            context.chart.data.datasets.forEach(dataset => {
+              if (dataset.data) {
+                dataset.data.forEach(val => {
+                  if (val !== null && val !== undefined && isFinite(val)) {
+                    allData.push(val);
+                  }
+                });
+              }
+            });
+            
+            if (allData.length === 0) return 25;
+            
+            const minVal = Math.min(...allData);
+            const maxVal = Math.max(...allData);
+            const range = maxVal - minVal;
+            
+            if (range < 2) {
+              return maxVal + 2;
+            } else {
+              return maxVal + range * 0.1;
+            }
+          },
+          ticks: {
+            stepSize: 0.5
           }
         }
       },
@@ -1437,12 +1324,6 @@ function afficherGraphiquePrevisions(resOuvert, resFerme) {
     }
   });
 }
-
-
-
-
-
-
 
 
 
@@ -1608,7 +1489,26 @@ function validerEtContinuer() {
     simulationState.historique.theorique.temperatures.push(tempFinaleTheorique);
     simulationState.historique.theorique.temps.push((simulationState.heure + 1) * 60);
   }
-  
+  // === NETTOYAGE AUTOMATIQUE DES DONNÉES (AJOUT) ===
+const MAX_POINTS_HISTORIQUE = 24;
+
+if (simulationState.historique.reel.temperatures.length > MAX_POINTS_HISTORIQUE) {
+  simulationState.historique.reel.temperatures = 
+    simulationState.historique.reel.temperatures.slice(-MAX_POINTS_HISTORIQUE);
+  simulationState.historique.reel.temps = 
+    simulationState.historique.reel.temps.slice(-MAX_POINTS_HISTORIQUE);
+  console.log(`🧹 Historique réel nettoyé: gardé ${MAX_POINTS_HISTORIQUE} dernières heures`);
+}
+
+if (simulationState.historique.theorique.temperatures.length > MAX_POINTS_HISTORIQUE) {
+  simulationState.historique.theorique.temperatures = 
+    simulationState.historique.theorique.temperatures.slice(-MAX_POINTS_HISTORIQUE);
+  simulationState.historique.theorique.temps = 
+    simulationState.historique.theorique.temps.slice(-MAX_POINTS_HISTORIQUE);
+  console.log(`🧹 Historique théorique nettoyé: gardé ${MAX_POINTS_HISTORIQUE} dernières heures`);
+}
+// === FIN NETTOYAGE ===
+
   // Stocker le choix fait
   simulationState.historique.choix.push(mode);
   
@@ -1644,7 +1544,1202 @@ function validerEtContinuer() {
   }
 }
 
+// === NOUVELLES FONCTIONS POUR SIMULATION 10H ===
 
+async function calculerFluxProchainesHeures(nbHeures = 10) {
+  try {
+    if (!simulationState.orientationConfirmee || !simulationState.parametresOrientation) {
+      throw new Error("Les paramètres d'orientation doivent être confirmés avant le calcul");
+    }
+    
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=temperature_2m,shortwave_radiation,direct_radiation,diffuse_radiation&timezone=auto&forecast_hours=${nbHeures + 1}`);
+    const data = await res.json();
+    
+    const donneesPrevision = [];
+    
+    for (let h = 1; h <= nbHeures; h++) {
+      const temp_ext = data.hourly.temperature_2m[h] || data.hourly.temperature_2m[0] || 10;
+      const GHI = data.hourly.shortwave_radiation[h] || data.hourly.shortwave_radiation[0] || 0;
+      const DNI = data.hourly.direct_radiation[h] || data.hourly.direct_radiation[0] || 0;
+      const DHI = data.hourly.diffuse_radiation[h] || data.hourly.diffuse_radiation[0] || 0;
+      
+      donneesPrevision.push({
+        heure: h,
+        temp_ext: temp_ext,
+        GHI: GHI,
+        DNI: DNI,
+        DHI: DHI
+      });
+    }
+    
+    return donneesPrevision;
+  } catch (error) {
+    console.error('Erreur calcul données météo:', error);
+    throw error;
+  }
+}
+
+function interpolerTemperatureExterieure(donneesMeteo, nbMinutesTotales) {
+  const tempParHeure = [donneesMeteo[0].temp_ext]; // Première température extérieure des prévisions
+  donneesMeteo.forEach(d => tempParHeure.push(d.temp_ext));
+  
+  const tempInterpolee = [];
+  for (let min = 0; min <= nbMinutesTotales; min++) {
+    const heureExacte = min / 60;
+    const heureInf = Math.floor(heureExacte);
+    const heureSup = Math.min(heureInf + 1, tempParHeure.length - 1);
+    
+    if (heureInf === heureSup) {
+      tempInterpolee.push(tempParHeure[heureInf]);
+    } else {
+      const ratio = heureExacte - heureInf;
+      const tempInter = tempParHeure[heureInf] + ratio * (tempParHeure[heureSup] - tempParHeure[heureInf]);
+      tempInterpolee.push(tempInter);
+    }
+  }
+  
+  return tempInterpolee;
+}
+
+
+function calculerFluxSolaireParMinute(donneesMeteo, tempExtInterpolee) {
+  const nbMinutesTotales = tempExtInterpolee.length - 1;
+  const fluxParMinute = [];
+  
+  const { orientation, azimuth, albedo, hauteur, inclinaison } = simulationState.parametresOrientation;
+  let azimuthFinal = orientationToAzimuth(orientation);
+  if (orientation === 'custom') azimuthFinal = azimuth;
+  
+  for (let min = 0; min <= nbMinutesTotales; min++) {
+    const maintenant = new Date();
+    const tempsSimule = new Date(maintenant.getTime() + min * 60000);
+    
+    const solarPos = calculateSolarPosition(tempsSimule);
+    
+    const heureIndex = Math.min(Math.floor(min / 60), donneesMeteo.length - 1);
+    const meteoHeure = donneesMeteo[heureIndex];
+    
+    const aoi = calculateAngleOfIncidence(inclinaison, azimuthFinal, solarPos.zenith, solarPos.azimuth);
+    const direct = aoi < 90 ? meteoHeure.DNI * Math.max(0, cosd(aoi)) : 0;
+    const diffuse = meteoHeure.DHI * (1 + cosd(inclinaison)) / 2;
+    const reflected = meteoHeure.GHI * albedo * (1 - cosd(inclinaison)) / 2 * Math.exp(-0.2 * Math.max(0, hauteur - 2));
+    
+    fluxParMinute.push(direct + diffuse + reflected);
+  }
+  
+  return fluxParMinute;
+}
+
+function ode_2body_ouvert_interpole(T, t_min, tempExtInterpolee, fluxInterpolee, parametres) {
+  const { A1, alpha_eq, h_conv, C1, C2, conductance_totale, conductance_air, efficacite_echangeur, surface_fenetre, coeff_reflexion_fenetre } = parametres;
+  
+  const T1 = T[0], T2 = T[1];
+  const indexTemps = Math.min(Math.floor(t_min), tempExtInterpolee.length - 1);
+  const temp_ext = tempExtInterpolee[indexTemps];
+  const flux_W_m2 = fluxInterpolee[indexTemps];
+  
+  const T_air_entrant = temp_ext + efficacite_echangeur * (T2 - temp_ext);
+  
+  const Q1 = (flux_W_m2 * surface_fenetre * coeff_reflexion_fenetre * (1 - alpha_eq)) / A1;
+  const conv_loss = h_conv * A1 * (T1 - T2);
+  const cond_loss = conductance_totale * (T2 - temp_ext);
+  const air_loss = conductance_air * (T2 - T_air_entrant);
+  
+  const dT1 = (-conv_loss + Q1) / C1;
+  const dT2 = (conv_loss - cond_loss - air_loss) / C2;
+  
+  return [dT1, dT2];
+}
+
+function ode_2body_ferme_interpole(T, t_min, tempExtInterpolee, fluxInterpolee, parametres) {
+  const { A1, h_conv, C1, C2, conductance_totale_eff, conductance_air, efficacite_echangeur } = parametres;
+  
+  const T1 = T[0], T2 = T[1];
+  const indexTemps = Math.min(Math.floor(t_min), tempExtInterpolee.length - 1);
+  const temp_ext = tempExtInterpolee[indexTemps];
+  
+  const T_air_entrant = temp_ext + efficacite_echangeur * (T2 - temp_ext);
+  
+  const Q1 = 0.0;
+  const conv_loss = h_conv * A1 * (T1 - T2);
+  const cond_loss = conductance_totale_eff * (T2 - temp_ext);
+  const air_loss = conductance_air * (T2 - T_air_entrant);
+  
+  const dT1 = (-conv_loss + Q1) / C1;
+  const dT2 = (conv_loss - cond_loss - air_loss) / C2;
+  
+  return [dT1, dT2];
+}
+
+// === VARIABLES GLOBALES SIMULATION TEMPS RÉEL ===
+let simulationTempsReel = {
+  active: false,
+  intervalMinute: null,
+  intervalCompteRebours: null,
+  donnees: [],
+  minuteActuelle: 0,
+  heureDebut: null,
+  enAttenteSaisie: false,
+  matricesDonnees: [], // Nouvelle propriété pour stocker les matrices 4x20
+  csvSimple: { // ✅ NOUVEAU: CSV simple qui grandit à chaque minute
+    header: 'Minute,T_Interieure_C,T_Exterieure_C,Flux_Solaire_Wm2\n',
+    data: ''
+  }
+};
+
+// === DÉMARRAGE SIMULATION TEMPS RÉEL ===
+function demarrerSimulationTempsReel() {
+  // Vérifications préalables
+  if (!simulationState.orientationConfirmee) {
+    alert('⚠️ Veuillez d\'abord confirmer l\'orientation du mur/fenêtre');
+    return;
+  }
+  
+  const tempInitiale = 22.0;
+  const etatInitial = document.getElementById('etatRideauxInitial').value;
+
+  // Initialisation
+  simulationTempsReel.active = true;
+  simulationTempsReel.heureDebut = new Date();
+  simulationTempsReel.minuteActuelle = 0;
+  simulationTempsReel.donnees = [];
+  simulationTempsReel.csvSimple.data = ''; // ✅ Réinitialiser le CSV simple
+  
+  // Enregistrer le point initial
+  enregistrerPoint(tempInitiale, etatInitial, "Initial", null, null); // Pas de données météo au démarrage
+  
+  // Mise à jour interface
+  document.getElementById('btnDemarrerTempsReel').style.display = 'none';
+  document.getElementById('btnArreterTempsReel').style.display = 'inline-block';
+  document.getElementById('texteStatut').textContent = 'Simulation active';
+  
+  // Démarrer les intervalles
+  demarrerIntervalles();
+  
+  // Première saisie immédiate après 1 minute
+  setTimeout(() => {
+    if (simulationTempsReel.active) {
+      demanderSaisie();
+    }
+  }, 60000); // 60 secondes
+  
+  mettreAJourGraphique();
+  console.log('✅ Simulation temps réel démarrée');
+}
+
+// === ARRÊT SIMULATION ===
+function arreterSimulationTempsReel() {
+  simulationTempsReel.active = false;
+  
+  // Arrêter les intervalles
+  if (simulationTempsReel.intervalMinute) {
+    clearInterval(simulationTempsReel.intervalMinute);
+    simulationTempsReel.intervalMinute = null;
+  }
+  
+  if (simulationTempsReel.intervalCompteRebours) {
+    clearInterval(simulationTempsReel.intervalCompteRebours);
+    simulationTempsReel.intervalCompteRebours = null;
+  }
+  
+  // Cacher la saisie
+  document.getElementById('saisieTempsReel').style.display = 'none';
+  simulationTempsReel.enAttenteSaisie = false;
+  
+  // Mise à jour interface
+  document.getElementById('btnDemarrerTempsReel').style.display = 'inline-block';
+  document.getElementById('btnArreterTempsReel').style.display = 'none';
+  document.getElementById('texteStatut').textContent = 'Simulation arrêtée';
+  document.getElementById('compteRebours').textContent = '--';
+  
+  console.log('🛑 Simulation temps réel arrêtée');
+}
+
+// === GESTION DES INTERVALLES ===
+function demarrerIntervalles() {
+  // Intervalle principal toutes les minutes
+  simulationTempsReel.intervalMinute = setInterval(() => {
+    if (simulationTempsReel.active && !simulationTempsReel.enAttenteSaisie) {
+      demanderSaisie();
+    }
+  }, 60000); // 60 secondes
+  
+  // Compte à rebours chaque seconde
+  simulationTempsReel.intervalCompteRebours = setInterval(() => {
+    if (simulationTempsReel.active && !simulationTempsReel.enAttenteSaisie) {
+      mettreAJourCompteRebours();
+    }
+  }, 1000);
+}
+
+// === DEMANDE DE SAISIE ===
+// === DEMANDE DE SAISIE AUTOMATIQUE ===
+function demanderSaisie() {
+  if (!simulationTempsReel.active) return;
+  
+  simulationTempsReel.minuteActuelle++;
+  simulationTempsReel.enAttenteSaisie = true;
+  
+  // ✅ AUTOMATISATION : Plus d'affichage de formulaire
+  // On appelle directement la validation avec les paramètres automatiques
+  const etatRideauxAuto = simulationTempsReel.donnees.length > 0 ? 
+                         simulationTempsReel.donnees[simulationTempsReel.donnees.length - 1].rideaux : 
+                         'ouvert'; // État par défaut ou du dernier point
+  
+  console.log(`🔔 Enregistrement automatique minute ${simulationTempsReel.minuteActuelle}`);
+  
+  // Appel automatique de la validation
+  validerSaisieTempsReel(etatRideauxAuto);
+}
+
+
+// === VALIDATION SAISIE AVEC T SUPER OBJET ===
+async function validerSaisieTempsReel(etatRideauxParam = null) {
+  // ✅ TEMPÉRATURE FIXE À 22°C
+  const temperature = 22.0;
+  
+  // État des rideaux : utiliser le paramètre ou valeur par défaut
+  const etatRideaux = etatRideauxParam || 
+                     (document.getElementById('etatRideaux') ? 
+                      document.getElementById('etatRideaux').value : 'ouvert');
+  
+  // RÉCUPÉRATION DONNÉES MÉTÉO ACTUELLES
+  let tempExterieure = null;
+  let fluxSolaire = null;
+  
+  try {
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,shortwave_radiation,direct_radiation,diffuse_radiation&timezone=auto`);
+    const data = await res.json();
+    
+    tempExterieure = data.current.temperature_2m || null;
+    
+    // Calcul flux solaire si orientation confirmée
+    if (simulationState.orientationConfirmee && simulationState.parametresOrientation) {
+      const { orientation, azimuth, albedo, hauteur, inclinaison } = simulationState.parametresOrientation;
+      let azimuthFinal = orientationToAzimuth(orientation);
+      if (orientation === 'custom') azimuthFinal = azimuth;
+      
+      const maintenant = new Date();
+      const solarPos = calculateSolarPosition(maintenant);
+      const aoi = calculateAngleOfIncidence(inclinaison, azimuthFinal, solarPos.zenith, solarPos.azimuth);
+      
+      const GHI = data.current.shortwave_radiation || 0;
+      const DNI = data.current.direct_radiation || 0;
+      const DHI = data.current.diffuse_radiation || 0;
+      
+      const direct = aoi < 90 ? DNI * Math.max(0, cosd(aoi)) : 0;
+      const diffuse = DHI * (1 + cosd(inclinaison)) / 2;
+      const reflected = GHI * albedo * (1 - cosd(inclinaison)) / 2 * Math.exp(-0.2 * Math.max(0, hauteur - 2));
+      
+      fluxSolaire = direct + diffuse + reflected;
+    }
+    
+  } catch (error) {
+    console.warn('Erreur récupération météo:', error);
+  }
+  
+  // ✅ CALCUL T SUPER OBJET (T1)
+  let tSuperObjet = null;
+  try {
+    // Récupération paramètres modèle pour calcul instantané
+    const parametres = extraireParametresModele2Corps();
+    
+    // Conditions initiales avec température actuelle
+    const T0 = [temperature, temperature]; // T1 = T2 = 22°C
+    
+    // Calcul sur 1 minute pour obtenir T1 suivant
+    const tempExtArray = [tempExterieure || 20]; // Fallback si pas de météo
+    const fluxArray = [fluxSolaire || 0];
+    
+    // Intégration sur 1 minute selon l'état des rideaux
+    let resultat;
+    if (etatRideaux === 'ouvert') {
+      resultat = integrerODE(
+        (T, t) => ode_2body_ouvert_interpole(T, t, tempExtArray, fluxArray, parametres),
+        T0, 60, 60 // 1 minute, 1 point
+      );
+    } else {
+      resultat = integrerODE(
+        (T, t) => ode_2body_ferme_interpole(T, t, tempExtArray, fluxArray, parametres),
+        T0, 60, 60 // 1 minute, 1 point
+      );
+    }
+    
+    // Récupérer T1 final après 1 minute
+    if (resultat && resultat.T_final && resultat.T_final.length > 0) {
+      tSuperObjet = resultat.T_final[0]; // T1 = température super objet
+    }
+    
+  } catch (error) {
+    console.warn('Erreur calcul T super objet:', error);
+    tSuperObjet = temperature; // Fallback = température air si erreur
+  }
+  
+  // CALCUL DES PRÉVISIONS 10H avec température fixe
+  let previsions = null;
+  try {
+    previsions = await calculerPrevisions10h(temperature);
+  } catch (error) {
+    console.warn('Erreur calcul prévisions 10h:', error);
+  }
+  
+  // ✅ ENREGISTRER LE POINT AVEC T SUPER OBJET
+  enregistrerPoint(temperature, etatRideaux, `Minute ${simulationTempsReel.minuteActuelle}`, tempExterieure, fluxSolaire, tSuperObjet);
+  
+  // ✅ NOUVEAU: ALIMENTER LE CSV SIMPLE
+  const ligne = `${simulationTempsReel.minuteActuelle},${temperature.toFixed(2)},${(tempExterieure || 'NULL').toString()},${(fluxSolaire || 'NULL').toString()}\n`;
+  simulationTempsReel.csvSimple.data += ligne;
+  
+  // Mettre à jour le compteur CSV simple
+  if (document.getElementById('nbCSVSimple')) {
+    const nbLignes = simulationTempsReel.csvSimple.data.split('\n').filter(line => line.trim() !== '').length;
+    document.getElementById('nbCSVSimple').textContent = nbLignes;
+  }
+  
+  // ✅ NOTE: La matrice 4x20 est maintenant créée automatiquement 
+  // par mettreAJourGraphique() avec les valeurs exactes du graphique
+  
+  // Stocker les prévisions
+  if (previsions && simulationTempsReel.donnees.length > 0) {
+    const dernierPoint = simulationTempsReel.donnees[simulationTempsReel.donnees.length - 1];
+    dernierPoint.previsions = previsions;
+  }
+  
+  // Plus de formulaire à cacher (déjà masqué)
+  simulationTempsReel.enAttenteSaisie = false;
+  
+  // Mettre à jour affichage
+  mettreAJourGraphique();
+  mettreAJourTableauDonnees();
+  
+  console.log(`✅ Point automatique: T_air=${temperature}°C (FIXE), T_superObjet=${tSuperObjet?.toFixed(2)}°C, T_ext=${tempExterieure?.toFixed(1)}°C, flux=${fluxSolaire?.toFixed(0)} W/m², rideaux=${etatRideaux}`);
+}
+
+
+
+
+
+// === ENREGISTREMENT D'UN POINT ===
+// === ENREGISTREMENT D'UN POINT AVEC T SUPER OBJET ===
+function enregistrerPoint(temperature, rideaux, label, tempExterieure = null, fluxSolaire = null, tSuperObjet = null) {
+  const maintenant = new Date();
+  const point = {
+    timestamp: maintenant,
+    minute: simulationTempsReel.minuteActuelle,
+    temperature: temperature,
+    tempExterieure: tempExterieure,
+    fluxSolaire: fluxSolaire,
+    rideaux: rideaux,
+    label: label,
+    tempsEcoule: simulationTempsReel.minuteActuelle === 0 ? 0 : 
+                 (maintenant - simulationTempsReel.heureDebut) / (1000 * 60),
+    previsions: null,
+    TsuperObjet: tSuperObjet  // ✅ NOUVEAU : Température super objet (T1)
+  };
+  
+  simulationTempsReel.donnees.push(point);
+  document.getElementById('nbPoints').textContent = simulationTempsReel.donnees.length;
+  
+  // Mettre à jour le compteur de matrices
+  if (document.getElementById('nbMatrices')) {
+    document.getElementById('nbMatrices').textContent = simulationTempsReel.matricesDonnees.length;
+  }
+}
+
+
+function mettreAJourGraphique() {
+  const ctx = document.getElementById('graphiqueTempsReel').getContext('2d');
+  
+  if (graphiqueTempsReelInstance) {
+    graphiqueTempsReelInstance.destroy();
+  }
+  
+  if (simulationTempsReel.donnees.length === 0) {
+    // Graphique vide
+    graphiqueTempsReelInstance = new Chart(ctx, {
+      type: 'line',
+      data: { labels: [], datasets: [] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top' },
+          title: { display: true, text: 'Simulation temps réel - Aucune donnée' }
+        },
+        scales: {
+          x: { title: { display: true, text: 'Temps' } },
+          y: { title: { display: true, text: 'Température (°C)' }, min: 15, max: 25 }
+        }
+      }
+    });
+    return;
+  }
+  
+  // === DONNÉES HISTORIQUES ===
+  const temperatures = simulationTempsReel.donnees.map(p => p.temperature);
+  const couleursPoints = simulationTempsReel.donnees.map(p => 
+    p.rideaux === 'ouvert' ? '#28a745' : '#6f42c1'
+  );
+
+  // Labels historiques
+  const labelsHist = simulationTempsReel.donnees.map(p => {
+    const heures = Math.floor(p.minute / 60);
+    const mins = p.minute % 60;
+    return `${heures}h${mins.toString().padStart(2, '0')}`;
+  });
+
+  // === PRÉVISIONS 10H ===
+  const dernierPoint = simulationTempsReel.donnees[simulationTempsReel.donnees.length - 1];
+  let labelsPrev = [], prevsOuvert = [], prevsFerme = [], prevsTextExt = [], prevsFlux = [];
+
+  if (dernierPoint && dernierPoint.previsions) {
+    const previsions = dernierPoint.previsions;
+    // ✅ MODIFICATION : Échantillonner toutes les 5 minutes au lieu de 30
+    for (let i = 0; i < previsions.ouvert.length; i += 5) {
+      const minuteAbs = simulationTempsReel.minuteActuelle + i;
+      const heures = Math.floor(minuteAbs / 60);
+      const mins = minuteAbs % 60;
+      labelsPrev.push(`${heures}h${mins.toString().padStart(2, '0')}`);
+      prevsOuvert.push(previsions.ouvert[i].T2);
+      prevsFerme.push(previsions.ferme[i].T2);
+      
+      // ✅ NOUVEAU : Extraire les prévisions météo
+      prevsTextExt.push(previsions.tempExt[i]);
+      prevsFlux.push(previsions.flux[i]);
+    }
+  }
+
+  // === ASSEMBLAGE LABELS ET DONNÉES ===
+  const labelsComplets = [...labelsHist, ...labelsPrev];
+  const tempsMesurees = [...temperatures, ...new Array(labelsPrev.length).fill(null)];
+
+  // ✅ MODIFICATION : Utiliser uniquement les prévisions météo
+  const tempsExt = [...new Array(labelsHist.length).fill(null), ...prevsTextExt];
+  const fluxData = [...new Array(labelsHist.length).fill(null), ...prevsFlux];
+
+  const prevsOuvertComplet = [...new Array(labelsHist.length).fill(null), ...prevsOuvert];
+  const prevsFermeComplet = [...new Array(labelsHist.length).fill(null), ...prevsFerme];
+
+  // === CALCUL LIMITES Y ===
+  const toutesValeursTemp = [
+    ...temperatures, 
+    ...prevsTextExt.filter(t => t !== null && t !== undefined),
+    ...prevsOuvert.filter(t => t !== null && t !== undefined),
+    ...prevsFerme.filter(t => t !== null && t !== undefined)
+  ];
+  
+  const minTemp = Math.min(...toutesValeursTemp);
+  const maxTemp = Math.max(...toutesValeursTemp);
+  const range = maxTemp - minTemp;
+  
+  let yMin, yMax;
+  if (range < 4) {
+    const center = (minTemp + maxTemp) / 2;
+    yMin = center - 2;
+    yMax = center + 2;
+  } else {
+    const padding = Math.max(1, range * 0.15);
+    yMin = minTemp - padding;
+    yMax = maxTemp + padding;
+  }
+  
+  yMin = Math.floor(yMin * 2) / 2;
+  yMax = Math.ceil(yMax * 2) / 2;
+  
+  // === CRÉATION GRAPHIQUE AVEC DOUBLE AXE Y ===
+  graphiqueTempsReelInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labelsComplets,
+      datasets: [
+        {
+          label: '🌡️ Température intérieure',
+          data: tempsMesurees,
+          borderColor: '#007bff',
+          backgroundColor: 'rgba(0, 123, 255, 0.1)',
+          borderWidth: 3,
+          fill: false,
+          tension: 0.3,
+          pointBackgroundColor: couleursPoints.concat(new Array(labelsPrev.length).fill('transparent')),
+          pointBorderColor: couleursPoints.concat(new Array(labelsPrev.length).fill('transparent')),
+          pointRadius: [6, 6, 6].concat(new Array(labelsPrev.length).fill(0)),
+          pointHoverRadius: 8,
+          pointBorderWidth: 2,
+          yAxisID: 'temperature'
+        },
+        {
+          label: '🌤️ Température extérieure (prévisions)',
+          data: tempsExt,
+          borderColor: '#fd7e14',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          fill: false,
+          tension: 0.3,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          yAxisID: 'temperature'
+        },
+        {
+          label: '☀️ Flux solaire (prévisions)',
+          data: fluxData,
+          borderColor: '#ffc107',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          fill: false,
+          tension: 0.3,
+          pointRadius: 2,
+          pointHoverRadius: 6,
+          yAxisID: 'flux'
+        },
+        {
+          label: '🌞 Prévision rideau ouvert',
+          data: prevsOuvertComplet,
+          borderColor: '#28a745',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [10, 3],
+          fill: false,
+          tension: 0.1,
+          pointRadius: 0,
+          yAxisID: 'temperature'
+        },
+        {
+          label: '🏠 Prévision rideau fermé',
+          data: prevsFermeComplet,
+          borderColor: '#6f42c1',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [10, 3],
+          fill: false,
+          tension: 0.1,
+          pointRadius: 0,
+          yAxisID: 'temperature'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { 
+          position: 'top',
+          labels: { usePointStyle: true, padding: 15 }
+        },
+        title: { 
+          display: true, 
+          text: `Simulation temps réel - ${temperatures.length} points + prévisions météo 10h`,
+          font: { size: 16 }
+        },
+        tooltip: {
+          callbacks: {
+            afterLabel: function(context) {
+              const index = context.dataIndex;
+              if (index < simulationTempsReel.donnees.length) {
+                const point = simulationTempsReel.donnees[index];
+                return `Rideaux: ${point.rideaux === 'ouvert' ? '🌞 Ouverts' : '🏠 Fermés'}`;
+              }
+              return 'Prévision';
+            }
+          }
+        }
+      },
+      scales: {
+        x: { 
+          title: { display: true, text: 'Temps' },
+          ticks: { maxTicksLimit: 15 }
+        },
+        temperature: { // ✅ AXIE Y PRINCIPAL (TEMPÉRATURE)
+          type: 'linear',
+          position: 'left',
+          title: { display: true, text: 'Température (°C)' },
+          min: yMin,
+          max: yMax,
+          ticks: { 
+            stepSize: 0.5,
+            callback: function(value) { return value.toFixed(1) + '°C'; }
+          }
+        },
+        flux: { // ✅ AXIE Y SECONDAIRE (FLUX SOLAIRE)
+          type: 'linear',
+          position: 'right',
+          title: { 
+            display: true, 
+            text: 'Flux solaire (W/m²)',
+            color: '#ffc107'
+          },
+          ticks: {
+            callback: function(value) { 
+              return Math.round(value) + ' W/m²'; 
+            },
+            color: '#ffc107'
+          },
+          grid: {
+            drawOnChartArea: false // Éviter la confusion avec la grille de température
+          }
+        }
+      },
+      interaction: { mode: 'index', intersect: false }
+    }
+  });
+  
+  console.log(`📅 Graphique mis à jour: ${temperatures.length} points réels + ${labelsPrev.length} prévisions + flux solaire`);
+  
+  // ✅ NOUVEAU : Créer la matrice 4x20 avec les mêmes données que le graphique
+  if (labelsPrev.length > 0 && prevsOuvert.length > 0) {
+    const donneesGraphique = {
+      prevsOuvert,
+      prevsFerme, 
+      prevsTextExt,
+      prevsFlux
+    };
+    
+    // Calculer et stocker la matrice avec les valeurs exactes du graphique
+    calculerMatrice4x20FromGraphique(donneesGraphique).then(matrice => {
+      if (matrice) {
+        // Chercher si une matrice existe déjà pour cette minute
+        const minuteActuelle = simulationTempsReel.minuteActuelle;
+        const indexExistant = simulationTempsReel.matricesDonnees.findIndex(m => m.minute === minuteActuelle);
+        
+        const matriceData = {
+          minute: minuteActuelle,
+          timestamp: new Date(),
+          matrice: matrice
+        };
+        
+        if (indexExistant >= 0) {
+          // Remplacer la matrice existante
+          simulationTempsReel.matricesDonnees[indexExistant] = matriceData;
+          console.log(`🔄 Matrice minute ${minuteActuelle} mise à jour`);
+        } else {
+          // Ajouter nouvelle matrice
+          simulationTempsReel.matricesDonnees.push(matriceData);
+          console.log(`➕ Nouvelle matrice minute ${minuteActuelle} ajoutée`);
+        }
+        
+        // Mettre à jour le compteur
+        if (document.getElementById('nbMatrices')) {
+          document.getElementById('nbMatrices').textContent = simulationTempsReel.matricesDonnees.length;
+        }
+      }
+    }).catch(error => {
+      console.warn('Erreur création matrice depuis graphique:', error);
+    });
+  }
+}
+
+
+
+
+
+// === COMPTE À REBOURS ===
+function mettreAJourCompteRebours() {
+  if (simulationTempsReel.enAttenteSaisie) {
+    document.getElementById('compteRebours').textContent = 'En attente de saisie';
+    return;
+  }
+  
+  const maintenant = new Date();
+  const tempsEcouleMs = maintenant - simulationTempsReel.heureDebut;
+  const minutesEcoulees = Math.floor(tempsEcouleMs / (1000 * 60));
+  const prochaineSaisie = (simulationTempsReel.minuteActuelle + 1) * 60 * 1000;
+  const tempsRestantMs = prochaineSaisie - tempsEcouleMs;
+  
+  if (tempsRestantMs > 0) {
+    const secondesRestantes = Math.ceil(tempsRestantMs / 1000);
+    const mins = Math.floor(secondesRestantes / 60);
+    const secs = secondesRestantes % 60;
+    document.getElementById('compteRebours').textContent = 
+      `${mins}:${secs.toString().padStart(2, '0')}`;
+  } else {
+    document.getElementById('compteRebours').textContent = '0:00';
+  }
+}
+
+// === MISE À JOUR TABLEAU DONNÉES ===
+// === MISE À JOUR TABLEAU DONNÉES ===
+// === MISE À JOUR TABLEAU DONNÉES AVEC MÉTÉO ===
+function mettreAJourTableauDonnees() {
+  const tableau = document.getElementById('tableauDonnees');
+  
+  if (simulationTempsReel.donnees.length === 0) {
+    tableau.innerHTML = '<em>Aucune donnée enregistrée</em>';
+    return;
+  }
+  
+  let html = `<table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <thead>
+      <tr style="background: #f8f9fa; font-weight: bold;">
+        <th style="border: 1px solid #ddd; padding: 6px;">Min</th>
+        <th style="border: 1px solid #ddd; padding: 6px;">Heure</th>
+        <th style="border: 1px solid #ddd; padding: 6px;">T° Int</th>
+        <th style="border: 1px solid #ddd; padding: 6px;">T° Super Objet</th>
+        <th style="border: 1px solid #ddd; padding: 6px;">T° Ext</th>
+        <th style="border: 1px solid #ddd; padding: 6px;">Flux W/m²</th>
+        <th style="border: 1px solid #ddd; padding: 6px;">Rideaux</th>
+        <th style="border: 1px solid #ddd; padding: 6px;">Matrice 4x20</th>
+      </tr>
+    </thead>
+    <tbody>`;
+  
+  simulationTempsReel.donnees.forEach(point => {
+    const iconeRideaux = point.rideaux === 'ouvert' ? '🌞' : '🏠';
+    const couleurLigne = point.rideaux === 'ouvert' ? '#e8f5e8' : '#f3e5f5';
+    
+    const tempExt = point.tempExterieure !== null ? 
+                   point.tempExterieure.toFixed(1) + '°C' : 'N/A';
+    
+    const flux = point.fluxSolaire !== null ? 
+                point.fluxSolaire.toFixed(0) + ' W/m²' : 'N/A';
+    
+    // ✅ NOUVEAU : Température super objet
+    const tSuper = point.TsuperObjet !== undefined && point.TsuperObjet !== null ? 
+                   point.TsuperObjet.toFixed(2) + '°C' : 'N/A';
+    
+    // ✅ Vérifier si une matrice 4x20 existe pour cette minute
+    const matrice = simulationTempsReel.matricesDonnees.find(m => m.minute === point.minute);
+    const matriceInfo = matrice ? 
+                       `<button onclick="afficherMatrice(${point.minute})" style="font-size: 10px; padding: 2px 5px;">Voir 4x20</button>` : 
+                       'N/A';
+    
+    html += `<tr style="background: ${couleurLigne};">
+      <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${point.minute}</td>
+      <td style="border: 1px solid #ddd; padding: 6px; text-align: center; font-size: 11px;">${point.timestamp.toLocaleTimeString()}</td>
+      <td style="border: 1px solid #ddd; padding: 6px; text-align: center; font-weight: bold; color: #007bff;">${point.temperature.toFixed(2)}°C</td>
+      <td style="border: 1px solid #ddd; padding: 6px; text-align: center; font-weight: bold; color: #e74c3c;">${tSuper}</td>
+      <td style="border: 1px solid #ddd; padding: 6px; text-align: center; color: #fd7e14;">${tempExt}</td>
+      <td style="border: 1px solid #ddd; padding: 6px; text-align: center; color: #28a745;">${flux}</td>
+      <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${iconeRideaux} ${point.rideaux}</td>
+      <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${matriceInfo}</td>
+    </tr>`;
+  });
+  
+  html += '</tbody></table>';
+  tableau.innerHTML = html;
+}
+
+
+
+
+// === EXPORT CSV SIMPLE (T_int, T_ext, Flux) ===
+function exporterCSVSimple() {
+  if (simulationTempsReel.csvSimple.data === '') {
+    alert('⚠️ Aucune donnée CSV simple à exporter');
+    return;
+  }
+  
+  const csvContent = simulationTempsReel.csvSimple.header + simulationTempsReel.csvSimple.data;
+  
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `donnees_simples_${new Date().toISOString().slice(0,10)}.csv`;
+  link.click();
+  
+  console.log(`💾 CSV simple exporté: ${simulationTempsReel.csvSimple.data.split('\n').length - 1} lignes`);
+}
+
+// === EXPORT DONNÉES COMPLÈTES ===
+// === EXPORT DONNÉES AVEC MÉTÉO ET MATRICES ===
+function exporterDonnees() {
+  if (simulationTempsReel.donnees.length === 0) {
+    alert('⚠️ Aucune donnée à exporter');
+    return;
+  }
+  
+  // Export principal
+  let csv = 'Minute,Timestamp,Temperature_Interieure_C,Temperature_SuperObjet_C,Temperature_Exterieure_C,Flux_Solaire_Wm2,Rideaux,Label\n';
+  simulationTempsReel.donnees.forEach(point => {
+    const tempExt = point.tempExterieure || 'NULL';
+    const flux = point.fluxSolaire || 'NULL';
+    const tSuper = point.TsuperObjet || 'NULL';
+    csv += `${point.minute},"${point.timestamp.toISOString()}",${point.temperature},${tSuper},${tempExt},${flux},"${point.rideaux}","${point.label}"\n`;
+  });
+  
+  // Ajouter les matrices 4x20 si disponibles
+  if (simulationTempsReel.matricesDonnees.length > 0) {
+    csv += '\n\n=== MATRICES 4x20 PAR MINUTE ===\n\n';
+    
+    simulationTempsReel.matricesDonnees.forEach(matriceData => {
+      const matrice = matriceData.matrice;
+      csv += `\nMINUTE ${matriceData.minute} - ${matriceData.timestamp.toISOString()}\n`;
+      csv += 'Ligne,Point1,Point2,Point3,Point4,Point5,Point6,Point7,Point8,Point9,Point10,Point11,Point12,Point13,Point14,Point15,Point16,Point17,Point18,Point19,Point20\n';
+      csv += 'Rideau_Ouvert_C,' + matrice.ligne1_rideau_ouvert.join(',') + '\n';
+      csv += 'Rideau_Ferme_C,' + matrice.ligne2_rideau_ferme.join(',') + '\n';
+      csv += 'Temperature_Ext_C,' + matrice.ligne3_temperature_ext.join(',') + '\n';
+      csv += 'Flux_Entrant_Wm2,' + matrice.ligne4_flux_entrant.join(',') + '\n\n';
+    });
+  }
+  
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `simulation_temps_reel_avec_matrices_${new Date().toISOString().slice(0,10)}.csv`;
+  link.click();
+  
+  console.log(`💾 Exporté: ${simulationTempsReel.donnees.length} points + ${simulationTempsReel.matricesDonnees.length} matrices 4x20`);
+}
+
+
+// === VIDER DONNÉES ===
+function viderDonnees() {
+  if (confirm('⚠️ Êtes-vous sûr de vouloir supprimer toutes les données (y compris les matrices 4x20 et CSV simple) ?')) {
+    simulationTempsReel.donnees = [];
+    simulationTempsReel.matricesDonnees = []; // ✅ NOUVEAU : Vider aussi les matrices
+    simulationTempsReel.csvSimple.data = ''; // ✅ NOUVEAU : Vider le CSV simple
+    simulationTempsReel.minuteActuelle = 0;
+    
+    mettreAJourGraphique();
+    mettreAJourTableauDonnees();
+    document.getElementById('nbPoints').textContent = '0';
+    document.getElementById('nbMatrices').textContent = '0';
+    document.getElementById('nbCSVSimple').textContent = '0';
+    
+    if (graphiqueTempsReelInstance) {
+      graphiqueTempsReelInstance.destroy();
+      graphiqueTempsReelInstance = null;
+    }
+    
+    console.log('🗑️ Données et matrices supprimées');
+  }
+}
+
+function debugGraphique() {
+  console.log('=== DEBUG GRAPHIQUE ===');
+  console.log('Données:', simulationTempsReel.donnees.length);
+  if (simulationTempsReel.donnees.length > 0) {
+    const temps = simulationTempsReel.donnees.map(p => p.temperature);
+    console.log('Températures:', temps);
+    console.log('Min:', Math.min(...temps), 'Max:', Math.max(...temps));
+  }
+  console.log('Canvas:', document.getElementById('graphiqueTempsReel'));
+  console.log('Instance graphique:', graphiqueTempsReelInstance);
+}
+
+// === DEBUG MATRICES ===
+function debugMatrices() {
+  console.log('=== DEBUG MATRICES 4x20 ===');
+  console.log('Nombre de matrices:', simulationTempsReel.matricesDonnees.length);
+  
+  simulationTempsReel.matricesDonnees.forEach((matriceData, index) => {
+    console.log(`\nMatrice ${index + 1} - Minute ${matriceData.minute}:`);
+    console.log('Timestamp:', matriceData.timestamp.toLocaleString());
+    
+    const matrice = matriceData.matrice;
+    console.log('Ligne 1 (rideau ouvert):', matrice.ligne1_rideau_ouvert.slice(0, 5), '... (20 valeurs)');
+    console.log('Ligne 2 (rideau fermé):', matrice.ligne2_rideau_ferme.slice(0, 5), '... (20 valeurs)');
+    console.log('Ligne 3 (temp ext):', matrice.ligne3_temperature_ext.slice(0, 5), '... (20 valeurs)');
+    console.log('Ligne 4 (flux):', matrice.ligne4_flux_entrant.slice(0, 5), '... (20 valeurs)');
+    
+    // Statistiques rapides
+    const tempOuvert = matrice.ligne1_rideau_ouvert.map(parseFloat);
+    const tempFerme = matrice.ligne2_rideau_ferme.map(parseFloat);
+    console.log('Différence moy ouvert-fermé:', 
+                (tempOuvert.reduce((a,b) => a+b) / 20 - tempFerme.reduce((a,b) => a+b) / 20).toFixed(3), '°C');
+  });
+  
+  return simulationTempsReel.matricesDonnees;
+}
+
+// === AFFICHAGE MATRICE 4x20 ===
+function afficherMatrice(minute) {
+  // Trouver la matrice correspondante
+  const matriceData = simulationTempsReel.matricesDonnees.find(m => m.minute === minute);
+  
+  if (!matriceData || !matriceData.matrice) {
+    alert('⚠️ Matrice 4x20 non trouvée pour la minute ' + minute);
+    return;
+  }
+  
+  const matrice = matriceData.matrice;
+  
+  // Calculer les informations temporelles
+  const dureeSimulationMinutes = 24 * 60;
+  const tempsRestantMinutes = Math.max(1, dureeSimulationMinutes - minute);
+  
+  // Les prévisions sont faites par pas de 5 minutes dans le graphique
+  const nbPointsGraphique = Math.floor(tempsRestantMinutes / 5); // Nombre de points à 5min d'intervalle
+  const intervalleMatrice = nbPointsGraphique > 20 ? Math.round((nbPointsGraphique - 1) / 19 * 5 * 10) / 10 : 5; // Intervalle réel entre points de la matrice
+  
+  // Créer le contenu HTML pour afficher la matrice
+  let html = `
+    <div style="font-family: monospace; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 800px; margin: 20px auto;">
+      <h3 style="text-align: center; color: #333; margin-bottom: 20px;">
+        📈 Matrice 4x20 - Minute ${minute}
+      </h3>
+      
+      <div style="font-size: 12px; margin-bottom: 15px; color: #666;">
+        <strong>Timestamp:</strong> ${matriceData.timestamp.toLocaleString()}<br>
+        <strong>Temps restant simulation:</strong> ${tempsRestantMinutes} minutes<br>
+        <strong>Points graphique disponibles:</strong> ${nbPointsGraphique} (intervalles 5min)<br>
+        <strong>Intervalle entre points matrice:</strong> ~${intervalleMatrice} minutes<br>
+        <strong>Source:</strong> Valeurs exactes du graphique temps réel
+      </div>
+      
+      <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 20px;">
+        <thead>
+          <tr style="background: #f8f9fa; font-weight: bold;">
+            <th style="border: 1px solid #ddd; padding: 8px; text-align: left; width: 200px;">Ligne</th>
+            <th style="border: 1px solid #ddd; padding: 4px; text-align: center;" colspan="20">20 Points (temps restant de simulation)</th>
+          </tr>
+        </thead>
+        <tbody>`;
+  
+  // Ligne 1 : Rideaux ouverts
+  html += `
+          <tr>
+            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background: #e8f5e8;">
+              🌞 Rideau ouvert (°C)
+            </td>`;
+  matrice.ligne1_rideau_ouvert.forEach(val => {
+    html += `<td style="border: 1px solid #ddd; padding: 4px; text-align: center; background: #f0fff0; font-size: 10px;">${val}</td>`;
+  });
+  html += `</tr>`;
+  
+  // Ligne 2 : Rideaux fermés
+  html += `
+          <tr>
+            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background: #f3e5f5;">
+              🏠 Rideau fermé (°C)
+            </td>`;
+  matrice.ligne2_rideau_ferme.forEach(val => {
+    html += `<td style="border: 1px solid #ddd; padding: 4px; text-align: center; background: #faf0ff; font-size: 10px;">${val}</td>`;
+  });
+  html += `</tr>`;
+  
+  // Ligne 3 : Température extérieure
+  html += `
+          <tr>
+            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background: #fff3cd;">
+              🌡️ Température extérieure (°C)
+            </td>`;
+  matrice.ligne3_temperature_ext.forEach(val => {
+    html += `<td style="border: 1px solid #ddd; padding: 4px; text-align: center; background: #fffbf0; font-size: 10px;">${val}</td>`;
+  });
+  html += `</tr>`;
+  
+  // Ligne 4 : Flux entrant
+  html += `
+          <tr>
+            <td style="border: 1px solid #ddd; padding: 8px; font-weight: bold; background: #d1ecf1;">
+              ☀️ Flux entrant (W/m²)
+            </td>`;
+  matrice.ligne4_flux_entrant.forEach(val => {
+    html += `<td style="border: 1px solid #ddd; padding: 4px; text-align: center; background: #f0f8ff; font-size: 10px;">${val}</td>`;
+  });
+  html += `</tr>`;
+  
+  html += `
+        </tbody>
+      </table>
+      
+      <div style="text-align: center; margin-top: 20px;">
+        <button onclick="fermerMatrice()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          Fermer
+        </button>
+        <button onclick="exporterMatrice(${minute})" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">
+          💾 Exporter CSV
+        </button>
+      </div>
+    </div>
+  `;
+  
+  // Afficher dans une modal ou remplacer le contenu du tableau
+  const overlay = document.createElement('div');
+  overlay.id = 'matriceOverlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    z-index: 1000;
+    overflow-y: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 20px;
+  `;
+  
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+  
+  // Fermeture en cliquant sur l'overlay
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) {
+      fermerMatrice();
+    }
+  });
+}
+
+// === FERMER LA MODAL MATRICE ===
+function fermerMatrice() {
+  const overlay = document.getElementById('matriceOverlay');
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
+// === EXPORTER UNE MATRICE SPÉCIFIQUE ===
+function exporterMatrice(minute) {
+  const matriceData = simulationTempsReel.matricesDonnees.find(m => m.minute === minute);
+  
+  if (!matriceData) {
+    alert('⚠️ Matrice non trouvée');
+    return;
+  }
+  
+  const matrice = matriceData.matrice;
+  let csv = `Matrice 4x20 - Minute ${minute} - ${matriceData.timestamp.toISOString()}\n\n`;
+  
+  // En-têtes colonnes
+  csv += 'Ligne,Point1,Point2,Point3,Point4,Point5,Point6,Point7,Point8,Point9,Point10,Point11,Point12,Point13,Point14,Point15,Point16,Point17,Point18,Point19,Point20\n';
+  
+  // Ligne 1
+  csv += 'Rideau_Ouvert_C,' + matrice.ligne1_rideau_ouvert.join(',') + '\n';
+  
+  // Ligne 2
+  csv += 'Rideau_Ferme_C,' + matrice.ligne2_rideau_ferme.join(',') + '\n';
+  
+  // Ligne 3
+  csv += 'Temperature_Ext_C,' + matrice.ligne3_temperature_ext.join(',') + '\n';
+  
+  // Ligne 4
+  csv += 'Flux_Entrant_Wm2,' + matrice.ligne4_flux_entrant.join(',') + '\n';
+  
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `matrice_4x20_minute_${minute}_${new Date().toISOString().slice(0,10)}.csv`;
+  link.click();
+  
+  console.log(`💾 Matrice 4x20 minute ${minute} exportée`);
+}
+
+// === CALCUL MATRICE 4x20 POUR CHAQUE MINUTE ===
+// Utilise exactement les mêmes données que le graphique
+async function calculerMatrice4x20FromGraphique(donneesGraphique = null) {
+  try {
+    // Si pas de données graphique fournies, les calculer
+    if (!donneesGraphique) {
+      console.warn('⚠️ Aucune donnée graphique fournie pour la matrice 4x20');
+      return null;
+    }
+    
+    const { prevsOuvert, prevsFerme, prevsTextExt, prevsFlux } = donneesGraphique;
+    
+    // Vérifier qu'on a des données de prévision
+    if (!prevsOuvert || prevsOuvert.length === 0) {
+      console.warn('⚠️ Pas de prévisions disponibles pour la matrice');
+      return null;
+    }
+    
+    console.log(`📈 Création matrice 4x20 depuis ${prevsOuvert.length} points de prévisions (5min chacun)`);
+    
+    // === ÉCHANTILLONNAGE À 20 POINTS EXACT ===
+    const nbPointsGraphique = prevsOuvert.length;
+    const matrice = {
+      ligne1_rideau_ouvert: [],     // 20 points température rideaux ouverts
+      ligne2_rideau_ferme: [],      // 20 points température rideaux fermés  
+      ligne3_temperature_ext: [],   // 20 points température extérieure
+      ligne4_flux_entrant: []       // 20 points flux entrant
+    };
+    
+    // Répartir 20 points sur tous les points de prévision disponibles
+    for (let i = 0; i < 20; i++) {
+      // Index adapté : répartir uniformément sur les données disponibles
+      const index = Math.min(Math.floor((i * (nbPointsGraphique - 1)) / 19), nbPointsGraphique - 1);
+      
+      // Ligne 1 : Température avec rideaux ouverts (EXACTEMENT du graphique)
+      const tempOuvert = prevsOuvert[index];
+      matrice.ligne1_rideau_ouvert.push(tempOuvert ? tempOuvert.toFixed(2) : '22.00');
+      
+      // Ligne 2 : Température avec rideaux fermés (EXACTEMENT du graphique)
+      const tempFerme = prevsFerme[index];
+      matrice.ligne2_rideau_ferme.push(tempFerme ? tempFerme.toFixed(2) : '22.00');
+      
+      // Ligne 3 : Température extérieure (EXACTEMENT du graphique)
+      const tempExt = prevsTextExt[index];
+      matrice.ligne3_temperature_ext.push(tempExt ? tempExt.toFixed(2) : '20.00');
+      
+      // Ligne 4 : Flux entrant (EXACTEMENT du graphique)
+      const flux = prevsFlux[index];
+      matrice.ligne4_flux_entrant.push(flux ? flux.toFixed(1) : '0.0');
+    }
+    
+    console.log(`✅ Matrice 4x20 créée avec les valeurs exactes du graphique`);
+    console.log('Indices utilisés:', Array.from({length: 20}, (_, i) => Math.min(Math.floor((i * (nbPointsGraphique - 1)) / 19), nbPointsGraphique - 1)));
+    
+    return matrice;
+    
+  } catch (error) {
+    console.error('Erreur calcul matrice 4x20 depuis graphique:', error);
+    return null;
+  }
+}
+
+// === CALCUL PRÉVISIONS 10 HEURES ===
+async function calculerPrevisions10h(tempActuelle) {
+  try {
+    // Vérifications préalables
+    if (!simulationState.orientationConfirmee) {
+      console.warn('Orientation non confirmée - prévisions limitées');
+      return null;
+    }
+    
+    // Récupération paramètres modèle
+    const parametres = extraireParametresModele2Corps();
+    
+    // Données météo pour 10h
+    const donneesMeteo = await calculerFluxProchainesHeures(10);
+    
+    // Conditions initiales
+    const T0 = [tempActuelle, tempActuelle]; // T1 = T2 = temp mesurée
+    
+    // Calcul sur 10 heures (600 minutes)
+    const tempExtInterpolee = interpolerTemperatureExterieure(donneesMeteo, 600);
+    const fluxInterpolee = calculerFluxSolaireParMinute(donneesMeteo, tempExtInterpolee);
+    
+    // Simulation rideau ouvert
+    const resOuvert = integrerODE(
+      (T, t) => ode_2body_ouvert_interpole(T, t, tempExtInterpolee, fluxInterpolee, parametres),
+      T0, 600 * 60, 60 // 1 point par minute
+    );
+    
+    // Simulation rideau fermé  
+    const resFerme = integrerODE(
+      (T, t) => ode_2body_ferme_interpole(T, t, tempExtInterpolee, fluxInterpolee, parametres),
+      T0, 600 * 60, 60
+    );
+    
+    return {
+      tempExt: tempExtInterpolee,
+      flux: fluxInterpolee,
+      ouvert: resOuvert.trajectoire.map(T => ({ T1: T[0], T2: T[1] })),
+      ferme: resFerme.trajectoire.map(T => ({ T1: T[0], T2: T[1] }))
+    };
+    
+  } catch (error) {
+    console.error('Erreur calcul prévisions:', error);
+    return null;
+  }
+}
+
+
+// === GESTION RACCOURCIS CLAVIER ===
+document.addEventListener('keydown', function(event) {
+  // Validation rapide avec Entrée quand le formulaire de saisie est visible
+  if (event.key === 'Enter' && document.getElementById('saisieTempsReel').style.display !== 'none') {
+    event.preventDefault();
+    validerSaisieTempsReel();
+  }
+  
+  // Arrêt d'urgence avec Échap
+  if (event.key === 'Escape' && simulationTempsReel.active) {
+    arreterSimulationTempsReel();
+  }
+});
 
 // --- INIT ---
 document.addEventListener('DOMContentLoaded',()=>{
@@ -1666,10 +2761,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('albedo').addEventListener('change', mettreAJourOrientationDisplay);
   document.getElementById('windowHeight').addEventListener('input', mettreAJourOrientationDisplay);
   document.getElementById('wallTilt').addEventListener('input', mettreAJourOrientationDisplay);
-   document.getElementById('btnValiderTempReelle').addEventListener('click', validerTemperatureReelle);
   
-  // === INITIALISATION WORKFLOW ===
-  mettreAJourEtapeIndicateur(1);
   
   // === INITIALISATION AFFICHAGE ORIENTATION ===
   mettreAJourOrientationDisplay();
